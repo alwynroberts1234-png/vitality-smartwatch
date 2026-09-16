@@ -17,7 +17,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Run bluetooth environment setup",
+      "label": "Vitality: 1. Run bluetooth environment setup",
       "type": "process",
       "command": "sh",
       "args": [
