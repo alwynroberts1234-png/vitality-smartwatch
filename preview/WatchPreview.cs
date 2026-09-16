@@ -47,6 +47,7 @@ public sealed class WatchPreview : Form {
     readonly Color Ink=ColorTranslator.FromHtml("#eaf4ef"), Muted=ColorTranslator.FromHtml("#7e9390");
     public WatchPreview() {
         Text="Vitality / Watch Studio";
+        Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         ClientSize=new Size(1120,780); MinimumSize=SizeFromClientSize(new Size(1120,780));
         MaximumSize=MinimumSize; FormBorderStyle=FormBorderStyle.FixedSingle;
         MaximizeBox=false; BackColor=ColorTranslator.FromHtml("#101917");

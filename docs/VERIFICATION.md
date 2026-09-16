@@ -1,14 +1,22 @@
 # Verification — 2026-09-16
 
+Current startup is UI-only. Firmware source and optional manual build helpers are
+retained; the automatic SDK downloader and VS Code firmware build task were removed.
+
 Passed locally:
+- UI-only startup: 13 Python tests ran, with 12 passing and one native Unix setup
+  test skipped on Windows. The setup regression checks confirm there is no firmware
+  task or SDK downloader and the Windows preparation stage needs zero downloads.
+  PowerShell and Bash syntax checks passed. Windows preview render checks passed,
+  and the complete Windows setup script launched the visible preview using only
+  existing Windows components. No dependencies were installed for these checks.
 - Portable launcher/UI: 10 regression tests passed on Windows, including OS task
   overrides, paths with spaces, build failure propagation, mock output validation,
   animation/state and duplicate-instance locks. A real hidden Tk window rendered
   all 36 screen/theme combinations and passed live timer/sleep checks.
   Linux/macOS CI jobs were added but not executed remotely in this session.
-- VS Code task JSON and PowerShell scripts validated. Direct startup scripts tested:
-  missing Zephyr environment returns exit 1; preview launches independently; running
-  startup twice reuses the same preview process. Folder-open event requires VS Code
+- VS Code task JSON and PowerShell scripts validated. Startup no longer checks for
+  a Zephyr environment; Windows checks its .NET UI compiler. Folder-open requires VS Code
   reload/reopen and was not driven through the editor during these checks.
 - Animation: changing rendered frames on all six screens, static sleeping display,
   no heart trace with sensors unavailable, transition start/midpoint/end, real

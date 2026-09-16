@@ -106,6 +106,8 @@ class Preview:
         self.model, self.themes = Model(), load_themes()
         self.last = time.monotonic()
         window.title("Vitality / Portable Watch Studio")
+        self.app_icon = tk.PhotoImage(file=str(ROOT / "assets" / "app" / "vitality.png"))
+        window.iconphoto(True, self.app_icon)
         window.configure(bg="#101917")
         window.resizable(False, False)
         self.canvas = tk.Canvas(window, width=940, height=670, bg="#101917", highlightthickness=0)

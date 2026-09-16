@@ -1,85 +1,92 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [[ "${1:-}" == "--plan" ]]; then
-  printf '%s\n' 'Install missing host tools using an EXISTING package manager.' \
-    'Create .tools/venv; fetch Zephyr v4.1.0; install the ARM SDK; launch UI and compile.' \
-    'Plan only: no changes. A package manager and administrator rights may be required.'
+stage="${1:-all}"
+if [[ "$stage" == --plan ]]; then
+  printf '%s\n' 'UI only: detect OS, find Python 3.10+ with Tk, install missing UI packages, then show the watch.' \
+    'Reuse an existing runtime. No pip packages, virtual environment or firmware toolchain downloads.'
   exit 0
 fi
-stage="${1:-all}"
-case "$stage" in
-  --detect)
-    case "$(uname -s)" in
-      Darwin) printf '%s\n' '[1/4] OS detected: macOS' ;;
-      Linux) printf '%s\n' '[1/4] OS detected: Linux' ;;
-      *) printf '%s\n' 'Unsupported host; use Setup-Environment.ps1 on Windows.' >&2; exit 1 ;;
-    esac
-    exit 0 ;;
-  --launch)
-    printf '%s\n' '[4/4] Compile firmware and show design'
-    if [[ ! -x "$root/.tools/venv/bin/python" ]]; then
-      printf '%s\n' 'Environment missing. Run Vitality: Open project first.' >&2; exit 1
-    fi
-    exec "$root/.tools/venv/bin/python" "$root/tools/setup_env.py" --launch-only ;;
-  all|--check|--download) ;;
+case "$stage" in all|--detect|--check|--download|--launch) ;;
   *) printf '%s\n' "Unknown setup stage: $stage" >&2; exit 1 ;;
 esac
+host="$(uname -s)"
+case "$host" in
+  Darwin) host_name=macOS ;;
+  Linux) host_name=Linux ;;
+  *) printf '%s\n' 'Use Setup-Environment.ps1 on Windows.' >&2; exit 1 ;;
+esac
+if [[ "$stage" == all || "$stage" == --detect ]]; then
+  printf '%s\n' "[1/4] OS detected: $host_name"
+  if [[ "$stage" == --detect ]]; then exit 0; fi
+fi
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-python_bin="${VITALITY_BOOTSTRAP_PYTHON:-python3}"
-if [[ -z "${VITALITY_BOOTSTRAP_PYTHON:-}" && -x "$root/.tools/venv/bin/python" ]]; then
-  python_bin="$root/.tools/venv/bin/python"
-fi
-missing=0
-for tool in git gperf dtc wget; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    printf '%s\n' "Missing host tool: $tool"
-    missing=1
+runtime_file="$root/.tools/preview-python"
+python_bin=""
+find_python() {
+  local candidate
+  local candidates=()
+  if [[ -n "${VITALITY_PREVIEW_PYTHON:-}" ]]; then
+    candidates+=("$VITALITY_PREVIEW_PYTHON")
   fi
-done
-python_ready=1
-"$python_bin" -c 'import sys, venv, tkinter; assert sys.version_info >= (3,10)' >/dev/null 2>&1 || python_ready=0
-if [[ "$python_ready" == 0 ]]; then missing=1; printf '%s\n' 'Missing usable Python 3.10+ with Tk/venv.'; fi
-if [[ "$stage" == --check ]]; then
-  printf '%s\n' '[2/4] Check development environment (no installation)'
-  if [[ "$missing" == 0 ]]; then printf '%s\n' 'Host prerequisites found.'; fi
-  if [[ "$python_ready" == 1 ]]; then
-    exec "$python_bin" "$root/tools/setup_env.py" --check
-  fi
-  printf '%s\n' 'Environment needs preparation; continuing to the download stage.'
-  exit 0
+  if [[ -f "$runtime_file" ]]; then candidates+=("$(cat "$runtime_file")"); fi
+  candidates+=(python3 python3.12 python3.11
+    /opt/homebrew/opt/python@3.12/bin/python3.12
+    /usr/local/opt/python@3.12/bin/python3.12
+    "$root/.tools/venv/bin/python")
+  for candidate in "${candidates[@]}"; do
+    if "$candidate" -c 'import sys, tkinter; assert sys.version_info >= (3,10)' >/dev/null 2>&1; then
+      python_bin="$(command -v "$candidate")"
+      return 0
+    fi
+  done
+  return 1
+}
+if [[ "$stage" == all || "$stage" == --check ]]; then
+  printf '%s\n' '[2/4] Check UI environment'
+  if find_python; then printf '%s\n' "Python/Tk ready: $python_bin"
+  else printf '%s\n' 'Python 3.10+ with Tk is missing; UI runtime setup is needed.'; fi
+  if [[ "$stage" == --check ]]; then exit 0; fi
 fi
-printf '%s\n' '[3/4] Download and prepare missing development tools'
-if [[ "$missing" == 1 ]]; then
-  case "$(uname -s)" in
-    Darwin)
+if [[ "$stage" == all || "$stage" == --download ]]; then
+  printf '%s\n' '[3/4] Prepare UI environment'
+  if ! find_python; then
+    if [[ "$host" == Darwin ]]; then
       if ! command -v brew >/dev/null; then
-        printf '%s\n' 'Homebrew is missing. Install it from https://brew.sh, then rerun this task.' >&2; exit 1
+        printf '%s\n' 'Install Python 3.10+ with Tk, or Homebrew from https://brew.sh, then rerun.' >&2
+        exit 1
       fi
-      brew install git gperf dtc wget python@3.12 python-tk@3.12
-      python_bin="$(brew --prefix python@3.12)/bin/python3.12"
-      ;;
-    Linux)
+      # This formula brings its matching Python only when needed.
+      brew install python-tk@3.12
+    else
       elevate=()
       if [[ "$(id -u)" != 0 ]]; then elevate=(sudo); fi
       if command -v apt-get >/dev/null; then
         "${elevate[@]}" apt-get update
-        "${elevate[@]}" apt-get install -y --no-install-recommends git gperf device-tree-compiler wget \
-          python3 python3-venv python3-pip python3-tk xz-utils file unzip
+        "${elevate[@]}" apt-get install -y --no-install-recommends python3-tk
       elif command -v dnf >/dev/null; then
-        "${elevate[@]}" dnf install -y git gperf dtc wget python3 python3-pip python3-tkinter xz file unzip
+        "${elevate[@]}" dnf install -y python3-tkinter
       elif command -v pacman >/dev/null; then
-        "${elevate[@]}" pacman -S --needed git gperf dtc wget python python-pip tk xz file unzip
+        "${elevate[@]}" pacman -S --needed python tk
       else
-        printf '%s\n' 'Install Python/Tk, Git, gperf, dtc and wget using your system package manager.' >&2; exit 1
+        printf '%s\n' 'Install Python 3.10+ with Tk using your OS package manager.' >&2
+        exit 1
       fi
-      ;;
-    *) printf '%s\n' 'Use Setup-Environment.ps1 on Windows.' >&2; exit 1 ;;
-  esac
+    fi
+    if ! find_python; then
+      printf '%s\n' 'A usable Python/Tk runtime was not found. Set VITALITY_PREVIEW_PYTHON to its executable.' >&2
+      exit 1
+    fi
+  else
+    printf '%s\n' 'Using existing Python/Tk. Download size: 0 bytes.'
+  fi
+  mkdir -p "$root/.tools"
+  printf '%s\n' "$python_bin" > "$runtime_file"
+  if [[ "$stage" == --download ]]; then exit 0; fi
 fi
-for tool in git gperf dtc wget; do command -v "$tool" >/dev/null; done
-"$python_bin" -c 'import sys, venv, tkinter; assert sys.version_info >= (3,10)'
-if [[ "$stage" == --download ]]; then
-  exec "$python_bin" "$root/tools/setup_env.py"
+printf '%s\n' '[4/4] Show watch design'
+if ! find_python; then
+  printf '%s\n' 'Run Vitality: Open project to prepare the UI runtime first.' >&2
+  exit 1
 fi
-exec "$python_bin" "$root/tools/setup_env.py" --start
+exec "$python_bin" "$root/preview/watch_preview.py"
