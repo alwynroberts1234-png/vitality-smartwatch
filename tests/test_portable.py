@@ -118,11 +118,12 @@ class Canvas:
 class PreviewTests(unittest.TestCase):
     def test_source_themes(self):
         themes=preview.load_themes()
-        self.assertEqual(len(themes),6)
+        self.assertEqual(len(themes),10)
         self.assertEqual(themes[2]["name"],"Clinical")
 
     def test_navigation_measurement_and_sleep(self):
         m=preview.Model()
+        m.screen=0
         m.navigate(-1)
         self.assertEqual(m.screen,5)
         m.navigate(1)
@@ -146,7 +147,7 @@ class PreviewTests(unittest.TestCase):
         ui.model.live_clock=False
         ui.themes=preview.load_themes()
         ui.canvas=Canvas()
-        for theme in range(6):
+        for theme in range(len(ui.themes)):
             ui.model.theme=theme
             for screen in range(6):
                 ui.model.screen=screen

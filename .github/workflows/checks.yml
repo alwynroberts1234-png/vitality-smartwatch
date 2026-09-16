@@ -30,5 +30,6 @@ jobs:
           python-version: '3.12'
       - run: python tests/test_portable.py
       - run: python tests/test_setup.py
+      - run: python tests/test_rewards.py
       - if: runner.os != 'Windows'
         run: bash -n tools/setup-host.sh tools/run-dev.sh

@@ -1,75 +1,103 @@
 # Vitality Watch
 
-Animated watch UI preview with the firmware source kept alongside it.
-Opening this project runs **only the desktop UI**. It does not download Zephyr,
-west, CMake, Ninja or an ARM SDK, and does not compile or flash firmware.
+Firmware foundation with Windows and portable Python/Tk desktop previews, based on your
+assets.png, supplied asset ZIP and watch specification.
 
-## Small-download setup
+## First-time setup
 
-| OS | UI runtime | Additional download |
+The setup scripts prepare **Zephyr v4.1.0 and an ARM SDK**, open the animated watch
+preview, and compile firmware for `nrf52840dk/nrf52840`.
+
+Full first-time installation and a real Zephyr cross-build have **not yet been
+verified**. The desktop preview and launcher tests have been checked locally on
+Windows. The firmware is a headless development-kit foundation; running the UI on
+your watch hardware still requires its board and display integration.
+
+### 1. Prepare your computer
+
+Use local desktop VS Code, an internet connection, and several GB of free disk
+space. Firmware dependencies are substantial downloads. A local graphical desktop
+is required for the preview.
+
+| OS | Required before automatic setup | What setup installs when missing |
 |---|---|---|
-| Windows | Existing Windows .NET Framework compiler and Windows Forms | None when the required Windows components are present |
-| Linux | Python 3.10+ with Tk | Only missing Python/Tk packages and their OS dependencies |
-| macOS | Python 3.10+ with Tk | None if available; otherwise the matching Python/Tk packages through existing Homebrew |
+| Windows | PowerShell and [Chocolatey](https://chocolatey.org/install); administrator rights may be needed for host packages | Python, Git, gperf, dtc, wget and 7zip |
+| macOS | Bash and [Homebrew](https://brew.sh/) | Python/Tk, Git, gperf, dtc and wget |
+| Linux | Bash and apt, dnf or pacman; sudo access for host packages | Python/Tk, Git and other host build utilities |
 
-There are no npm or pip dependencies for the UI. An existing usable runtime is
-reused. Package sizes on Linux/macOS depend on what is already installed and on
-the package manager; the scripts do not promise a fixed download size.
-The preview requires a graphical desktop.
+Install a missing package manager using its linked official instructions. The
+repository does not install Chocolatey or Homebrew for you. If all host tools are
+already installed, the scripts skip package-manager installation steps.
 
-Windows does not need Python, Git, Chocolatey or a firmware toolchain to show the
-design. If its .NET Framework compiler is missing, setup reports that prerequisite
-instead of downloading a replacement framework.
+On Windows, if Chocolatey reports that elevation is required, install the host
+packages in an administrator PowerShell terminal, then return to normal VS Code:
 
-## Open in VS Code
+```powershell
+choco install python311 git gperf dtc-msys2 wget 7zip -y
+```
 
-1. Clone the repository or extract its source ZIP.
-2. Choose **File > Open Folder** and select the folder containing this README.
-3. Review and trust the folder.
-4. Allow automatic tasks if prompted.
-5. Run **Tasks: Run Task > Vitality: Open project**, or reopen the folder.
+### 2. Open the repository folder
 
-The startup sequence in [.vscode/tasks.json](.vscode/tasks.json) is:
+1. Clone this repository, or download and extract its source ZIP.
+2. In VS Code, select **File > Open Folder** and choose the folder containing
+   this README.
+3. Review the repository and trust the folder when prompted. Tasks cannot run in
+   Restricted Mode.
+4. If automatic tasks are blocked, run **Tasks: Manage Automatic Tasks** from the
+   Command Palette and allow them for this folder.
+5. Run **Tasks: Run Task > Vitality: Open project** to start immediately, or reopen
+   the folder to trigger startup automatically.
 
-1. **Detect OS**.
-2. **Check UI environment** without installing anything.
-3. **Prepare UI environment**. Reuse existing tools; install missing Python/Tk
-   packages on Linux/macOS only.
-4. **Show watch design**. Windows builds the desktop preview executable locally
-   when needed. Linux/macOS run the Python preview directly.
+The repository enables automatic tasks in `.vscode/settings.json`. Workspace
+trust and organization policies still apply. See the official
+[task documentation](https://code.visualstudio.com/docs/debugtest/tasks#_run-behavior)
+and [Workspace Trust guide](https://code.visualstudio.com/docs/editing/workspaces/workspace-trust).
 
-A failed stage stops subsequent stages. There is no firmware build task.
-On later opens, setup reuses the UI runtime. An already running preview is reused
-instead of opening duplicate windows. On Linux/macOS, the task stays active while
-the preview window is open.
+### 3. Wait for setup and compilation
 
-If you previously clicked **Don't Allow**, open the Command Palette
-(**Ctrl+Shift+P**, or **Cmd+Shift+P** on macOS), run **Tasks: Manage Automatic
-Tasks**, choose **Allow Automatic Tasks**, then run **Developer: Reload Window**.
-The folder must also be trusted. See the official
-[task documentation](https://code.visualstudio.com/docs/debugtest/tasks#_control-automatic-task-execution).
+The **Vitality: Open project** terminal shows progress in this order:
 
-To disable automatic startup, set `task.allowAutomaticTasks` to `off` in
-[.vscode/settings.json](.vscode/settings.json). To reopen only the UI, use
-**Tasks: Run Task > Vitality: Start preview**.
+1. Check host tools and install missing prerequisites.
+2. Create `.tools/venv` and install west, CMake and Ninja.
+3. Fetch Zephyr v4.1.0 and its modules, then install its Python requirements.
+4. Find or install the compatible ARM SDK and save environment paths.
+5. Open the animated preview and start the firmware build.
 
-## Run from a terminal
+Successful compilation reports `Firmware built:` and creates
+`build/firmware/zephyr/zephyr.elf`. These tasks do not flash a device. The desktop
+UI runs independently of the firmware build.
 
-Run these commands from the repository root.
+Subsequent opens reuse the saved environment and build incrementally. A setup
+failure stops startup before launching the UI; a later firmware compilation
+failure leaves the preview open.
 
-Windows: check the existing runtime, build the desktop preview if needed, and open it:
+## Everyday use
+
+| Action | VS Code command |
+|---|---|
+| Set up tools, open UI and build firmware | Tasks: Run Task > Vitality: Open project |
+| Build firmware again | Tasks: Run Build Task; Ctrl+Shift+B on Windows/Linux, Cmd+Shift+B on macOS |
+| Open the UI separately | Tasks: Run Task > Vitality: Start preview |
+| Disable automatic startup | Set `task.allowAutomaticTasks` to `off` in `.vscode/settings.json` |
+
+## Setup from a terminal
+
+Run all commands below from the repository root. These commands perform the same
+setup, UI launch and build as the folder-open task.
+
+Windows PowerShell:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Setup-Environment.ps1
 ```
 
-Linux/macOS: prepare only the UI runtime, then open the preview:
+Linux/macOS:
 
 ```sh
 bash tools/setup-host.sh
 ```
 
-To inspect the plan without downloading or launching anything:
+To inspect the setup plan without installing anything:
 
 ```powershell
 # Windows
@@ -81,115 +109,149 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/Setup-Environment.ps1 
 bash tools/setup-host.sh --plan
 ```
 
-To launch the UI directly, without installing dependencies:
+Setup normally stores its environment in the ignored `.tools` directory. It also
+supports an existing Zephyr 4.1.0 workspace. See [advanced setup and environment
+overrides](docs/VSCODE.md#existing-environments-and-manual-commands).
+
+## Troubleshooting setup
+
+| Symptom | What to do |
+|---|---|
+| Nothing happens when opening VS Code | Open the whole repository folder, check Workspace Trust and automatic-task permissions, then run `Vitality: Open project` manually. |
+| Chocolatey or Homebrew is missing | Install the package manager from its official site above, then retry. |
+| Host installation fails with a permissions error | On Windows, install host prerequisites in an administrator terminal. On Linux, supply the sudo password when requested. |
+| Download or package installation fails | Check connectivity and available storage, fix the reported error, then rerun `Vitality: Open project`. |
+| Existing workspace is not Zephyr 4.1.0 | Select a matching workspace with `VITALITY_ZEPHYR_WORKSPACE`; see the advanced setup guide. |
+| Nonempty incomplete workspace is reported | Inspect the path printed in the terminal before retrying. Setup does not delete an incomplete initial clone automatically. |
+| Firmware compilation fails | Read the first build error in the startup terminal. The UI can stay open while you resolve it. |
+| Linux/macOS preview does not appear | Check `build/portable-preview.log`, Tk availability and whether the session has a graphical display. |
+
+After fixing an error, use **Tasks: Run Task > Vitality: Open project** again.
+If Windows setup is blocked, the standalone preview command below can still run
+without the firmware SDK.
+
+## Run the watch preview on Windows
+
+Build and launch from the repository root:
 
 ```powershell
-# Windows
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Build-Preview.ps1 -Run
 ```
 
+The preview uses Windows Forms and the .NET Framework compiler included with
+64-bit Windows. No npm, Python or browser server is needed.
+After the first successful preview build, you can also open `build/VitalityPreview.exe`.
+
+Select a screen on the left; use the six theme buttons at the bottom.
+Swipe horizontally over the watch or use Left/Right keys. Home returns to the face.
+Click the crown or press Space to sleep/wake. Heart Rate runs a timed **demo**
+measurement; Activity toggles a demo workout. Turn simulated sensors off to see
+unavailable values. The computer clock is enabled by default; switching it off uses a running demo clock.
+
+The preview animates at a target of 30 frames per second: moving ring highlights,
+pulsing hearts, scrolling demo traces, measurement spinners, sweeping analog hands,
+swaying Nature leaves, twinkling Recovery stars and smooth screen/theme fades.
+Animation pauses while sleeping or minimized. No animation packages are required.
+The build script reuses an unchanged preview or closes it when replacing the executable.
+
+The desktop preview is a separate design tool, **not a hardware or LVGL emulator**.
+Its detailed visual rendering is ahead of the simpler firmware LVGL milestone.
+
+## Run the portable preview on Linux/macOS
+
+After setup, run from the project root:
+
 ```sh
-# Linux/macOS, with a usable Python/Tk runtime
 bash tools/run-dev.sh preview
-# Or with your selected Python:
-python3 preview/watch_preview.py
 ```
 
-After its first successful build, the Windows preview is available at
-`build/VitalityPreview.exe`.
-
-## Linux and macOS runtime setup
-
-The setup script first searches for Python 3.10+ that can import Tk.
-Set `VITALITY_PREVIEW_PYTHON` to a suitable executable to prefer your installation:
+For preview only, an existing Python 3.10+ installation with Tk is sufficient:
 
 ```sh
-export VITALITY_PREVIEW_PYTHON="/path/to/python3"
-bash tools/setup-host.sh
+python3 tools/dev.py preview
 ```
 
-The chosen executable path is saved in the ignored `.tools/preview-python` file.
-No new virtual environment is created.
+This native Tk preview reads the supplied themes and animates without pip packages.
+See [VS Code setup](docs/VSCODE.md) for OS prerequisites.
 
-If Python/Tk is missing, Linux setup uses apt, dnf or pacman and may request your
-sudo password. macOS setup uses an existing [Homebrew](https://brew.sh/) to install
-`python-tk@3.12` and its matching Python dependencies. If Homebrew is absent,
-install a Python distribution with Tk or install Homebrew yourself, then retry.
-Existing package managers are used; the project does not install them.
-
-## Using the watch UI
-
-Select screens and themes with the preview controls. Use arrows/swipes to
-navigate and the crown or Space to sleep/wake. Heart Rate and Activity provide
-simulated measurements and workout actions.
-
-The UI animates rings, hearts, traces and clock hands. The Windows renderer also
-has theme effects and transitions. The portable Tk renderer uses the same themes
-but is not pixel-identical. Neither preview executes the firmware or simulates
-the watch hardware.
-
-## Troubleshooting
-
-| Symptom | Action |
-|---|---|
-| Nothing runs when opening VS Code | Open the whole folder, check trust and automatic-task permissions, then run `Vitality: Open project`. |
-| Windows reports a missing .NET Framework compiler | Restore/install the required Windows .NET Framework components, then retry. |
-| Python/Tk cannot be found | Run the setup task, or set `VITALITY_PREVIEW_PYTHON` to a Python 3.10+ executable with Tk. |
-| Package installation fails | Check the terminal error, internet access and package-manager permissions; retry setup after correcting it. |
-| UI does not appear on Linux/macOS | Read the task terminal and check that your session has a graphical display. Remote/headless sessions need a display. |
-| Windows preview cannot be replaced | Close its window and rerun `Vitality: Start preview`. |
-
-## Firmware source
-
-The C firmware, headers, board configuration, Zephyr manifest and assets remain
-in the repository for maintenance. They are excluded from the UI startup flow.
-The previous automatic firmware environment downloader has been removed.
-
-The baseline is Zephyr v4.1.0 with its pinned LVGL module. The default target is a
-headless nRF52840 DK with simulated sensor data. Custom watch support still needs
-the actual display controller, board pin map and power integration.
-
-Manual firmware build helpers are retained for future development with a
-separately configured toolchain. UI setup does not prepare that toolchain.
-A real Zephyr target build and hardware tests remain unverified.
-
-See [hardware requirements](docs/HARDWARE.md),
-[board integration](boards/vitality/README.md), and
-[architecture](docs/ARCHITECTURE.md).
-
-## Optional asset checks and tests
-
-These commands are manual development checks, not part of opening the UI.
-
-Windows asset generation and preview render checks:
+## Build and check assets
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Build-Assets.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Build-Preview.ps1 -Render
 ```
 
-SVG masters live under `assets/masters`. The optional asset pack is written to
-`qspi_image/output`; render checks write to `build/screenshots`.
+Output: qspi_image/output/vitality_assets.bin and manifest.json.
+The asset pack contains curated SVG-derived icons/logo and the supplied theme JSON.
+SVG files remain the masters. Original assets remain untouched.
+Rendering also runs preview checks and writes screenshots under build/screenshots.
 
-Launcher and preview tests, using an existing Python installation:
+## Firmware
 
-```sh
-python -m unittest discover -s tests -p 'test_*.py'
+The reproducible baseline is **Zephyr v4.1.0 / its pinned LVGL module**, using C,
+CMake and west. This is an upstream Zephyr baseline; an nRF Connect SDK migration
+must pin an NCS release and revalidate configuration/API compatibility.
+
+After first-time setup, compile without launching the UI:
+
+```powershell
+# Windows
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/Build-Firmware.ps1
 ```
 
-These tests do not install dependencies or cross-compile firmware. Firmware
-launcher tests mock their compiler commands. Native Linux/macOS setup tests run
-on those platforms in CI; they have not been executed locally on Windows.
+```sh
+# Linux/macOS
+bash tools/run-dev.sh firmware
+```
+
+Output: `build/firmware/zephyr/zephyr.elf` (and `zephyr.hex` when generated).
+To disable simulated sensors, use `-ExtraConfig config/no_simulator.conf` with
+the Windows script, or run the managed Python launcher on Linux/macOS:
+
+```sh
+.tools/venv/bin/python tools/dev.py firmware --extra-conf config/no_simulator.conf
+```
+
+The default application is a **headless development-kit target**, logging explicit
+simulated data. A watch UI build requires the real display device tree/driver:
+merge config/ui.conf only after integrating your panel. Merge config/qspi.conf
+after defining and provisioning vitality_assets_partition on external flash.
+
+There is no guessed custom PCB pin map. Display controller, pin assignments and
+PMIC details are still required; see boards/vitality/README.md.
+Do not flash the proposed 32 MiB partition map onto the DK's onboard flash.
+
+## Portable C tests
+
+On a machine with CMake and a C compiler:
+
+```sh
+cmake -S . -B build/core -DVITALITY_HOST_TESTS=ON
+cmake --build build/core
+ctest --test-dir build/core --output-on-failure
+```
+
+On Windows with gcc/clang/TinyCC:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-Core.ps1 -Compiler path/to/compiler.exe
+```
+
+The latter also tests the actual generated pack using the firmware asset reader.
+CI definitions cover portable C and Windows preview/assets; they are not a substitute
+for a Zephyr target build and bench tests.
 
 ## Project map
 
-- `preview/`: animated desktop UI.
-- `assets/masters/`: curated SVG artwork.
-- `vitality_watch_assets/`: supplied theme and animation data.
-- `.vscode/`, `tools/`: UI startup, optional development helpers and tests.
-- `src/`, `include/`: firmware source.
-- `boards/`, `config/`, `qspi_image/`: hardware and asset integration.
-- `docs/`: [setup details](docs/VSCODE.md), architecture and
-  [verification status](docs/VERIFICATION.md).
+- src/app, include: state, events, normalized measurements.
+- src/sensors, src/vitality: explicit demo data and demo-only scores.
+- src/ui: optional LVGL screen implementation.
+- src/assets, src/storage: validated asset reads, Q: bridge, Zephyr flash adapter.
+- preview: interactive native desktop watch.
+- assets/masters: cleaned SVG artwork used by preview and firmware packer.
+- vitality_watch_assets: supplied assets, preserved.
+- config, boards, qspi_image: feature overlays and hardware integration contract.
+- docs: hardware, architecture, asset quality review and verification status.
+- tests, tools: core tests, asset conversion and preview build.
 
-The original specification is in [PROJECT_SPEC.md](PROJECT_SPEC.md).
+Start with [PROJECT_SPEC.md](PROJECT_SPEC.md), [hardware](docs/HARDWARE.md),
+[architecture/status](docs/ARCHITECTURE.md), and [verification](docs/VERIFICATION.md).

@@ -14,7 +14,7 @@ public sealed class Theme {
     public Color C(string value) { return ColorTranslator.FromHtml(value); }
 }
 public sealed class WatchModel {
-    public int Screen, ThemeIndex;
+    public int Screen=1, ThemeIndex;
     public bool Simulated=true, Sleeping, Workout, LiveClock=true;
     public int MeasurementSeconds;
     public DateTime MeasurementStarted;
@@ -26,9 +26,10 @@ public sealed class WatchModel {
 }
 public sealed class WatchPreview : Form {
     static readonly string Root=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,".."));
-    static readonly string[] ThemeFiles={"vitality_flow","nature","clinical","sport","minimal","recovery"};
-    static readonly string[] Screens={"Watch face","Vitality","Heart rate","Activity","Environment","Settings"};
-    readonly Theme[] themes=new Theme[6];
+    static readonly string[] ThemeFiles={"vitality_flow","nature","clinical","sport","minimal","recovery","ocean","sunrise","lavender","midnight"};
+    static readonly string[] Screens={"Watch face","Vitality rewards","Heart rate","Activity","Environment","Settings"};
+    readonly Theme[] themes=new Theme[ThemeFiles.Length];
+    readonly Rewards rewards;
     readonly Dictionary<string,Image> images=new Dictionary<string,Image>();
     readonly WatchModel model=new WatchModel();
     readonly Timer timer=new Timer();
@@ -45,7 +46,8 @@ public sealed class WatchPreview : Form {
     float HeartPulse { get { return (float)(Math.Exp(-Math.Pow((BeatPhase-.15)/.09,2))+
         .45*Math.Exp(-Math.Pow((BeatPhase-.38)/.08,2))); } }
     readonly Color Ink=ColorTranslator.FromHtml("#eaf4ef"), Muted=ColorTranslator.FromHtml("#7e9390");
-    public WatchPreview() {
+    public WatchPreview(bool persistRewards=true) {
+        rewards=new Rewards(persistRewards?Path.Combine(Root,"build","rewards-windows.json"):null);
         Text="Vitality / Watch Studio";
         Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         ClientSize=new Size(1120,780); MinimumSize=SizeFromClientSize(new Size(1120,780));
@@ -53,7 +55,7 @@ public sealed class WatchPreview : Form {
         MaximizeBox=false; BackColor=ColorTranslator.FromHtml("#101917");
         DoubleBuffered=true; KeyPreview=true;
         JavaScriptSerializer json=new JavaScriptSerializer();
-        for(int i=0;i<6;i++) themes[i]=json.Deserialize<Theme>(File.ReadAllText(Path.Combine(Root,"vitality_watch_assets","themes",ThemeFiles[i]+".json")));
+        for(int i=0;i<themes.Length;i++) themes[i]=json.Deserialize<Theme>(File.ReadAllText(Path.Combine(Root,"vitality_watch_assets","themes",ThemeFiles[i]+".json")));
         foreach(string icon in new[]{"heart","spo2","steps","sleep","environment","temperature","humidity","altitude","battery"}) {
             string p=Path.Combine(Root,"assets","masters",icon+".svg");
             if(File.Exists(p)) images[icon]=VectorAssets.Render(p,64);
@@ -72,6 +74,7 @@ public sealed class WatchPreview : Form {
             double now=animationClock.Elapsed.TotalSeconds;
             double elapsed=Math.Max(0,now-lastTick);lastTick=now;
             model.Tick();
+            rewards.Refresh(DateTime.Today.ToString("yyyy-MM-dd"));
             if(WindowState==FormWindowState.Minimized) return;
             if(model.Sleeping && outgoingFace==null) return;
             animationTime+=elapsed;
@@ -113,14 +116,19 @@ public sealed class WatchPreview : Form {
             });
             if(e.Y>=662 && e.Y<=697) Change(()=>model.LiveClock=!model.LiveClock);
         }
-        if(e.X>=365 && e.X<1025 && e.Y>=705 && e.Y<=747) {
-            int i=(e.X-365)/110;if(i<6)Change(()=>model.ThemeIndex=i);
+        if(e.X>=365 && e.X<1025 && e.Y>=704 && e.Y<776) {
+            int i=(e.Y-704)/36*5+(e.X-365)/132;if(i<themes.Length)Change(()=>model.ThemeIndex=i);
+        }
+        if(!model.Sleeping && model.Screen==1 && e.X>=546 && e.X<=812) {
+            int y=e.Y-173;
+            for(int i=0;i<3;i++)if(y>=228+i*39 && y<261+i*39) {rewards.Complete(i);Invalidate();return;}
+            if(y>=351 && y<389) {rewards.Claim();Invalidate();return;}
         }
         if(e.X>=945 && e.X<=993 && e.Y>=303 && e.Y<=357) Change(()=>model.Sleeping=!model.Sleeping);
         if(!model.Sleeping && e.X>=551 && e.X<=807 && e.Y>=494 && e.Y<=538) {
             if(model.Screen==2) model.Measure();
             if(model.Screen==3 && model.Simulated) model.Workout=!model.Workout;
-            if(model.Screen==5) Change(()=>model.ThemeIndex=(model.ThemeIndex+1)%6);
+            if(model.Screen==5) Change(()=>model.ThemeIndex=(model.ThemeIndex+1)%themes.Length);
         }
         Invalidate();
     }
@@ -139,7 +147,7 @@ public sealed class WatchPreview : Form {
         }
     }
     void RingHighlight(Graphics g,Color color,float x,float y,float diameter,float start,float sweep,float width) {
-        if(!model.Simulated)return;
+        if(!model.Simulated || sweep<=0)return;
         // Light moves within the fixed progress arc, without changing the score.
         float position=(float)((animationTime*.20)%1);
         float head=start+position*Math.Max(0,sweep-16);
@@ -220,8 +228,8 @@ public sealed class WatchPreview : Form {
         Toggle(g,"Simulated sensors",model.Simulated,618);
         Toggle(g,"Use computer clock",model.LiveClock,666);
         T(g,"v0.1  /  nRF52840",11,Muted,34,734,220);
-        T(g,"A little more in balance.",28,Ink,336,40,660,true);
-        T(g,"Your health. Your time. A better you.",14,Muted,337,82,610);
+        T(g,"Small steps. Real encouragement.",27,Ink,336,40,550,true);
+        T(g,"Vitality rewards / personal goals, at your own pace.",14,Muted,337,82,610);
         using(Brush b=new SolidBrush(Color.FromArgb(37,64,45)))Rect(g,b,894,49,168,30,15);
         T(g,"DESKTOP PREVIEW",10,Color.FromArgb(166,226,181),894,58,168,false,true);
         // Physical enclosure surrounding the exact 466 x 466 display.
@@ -238,11 +246,11 @@ public sealed class WatchPreview : Form {
         DrawAnimatedFace(g);
         g.Restore(saved);
         T(g,"Swipe or use arrow keys to explore  /  Crown or Space to sleep",11,Muted,351,681,685,false,true);
-        for(int i=0;i<6;i++) {
-            float x=365+i*110;
-            if(model.ThemeIndex==i)using(Brush b=new SolidBrush(Color.FromArgb(42,59,48)))Rect(g,b,x,709,103,41,10);
-            using(Brush b=new SolidBrush(themes[i].C(themes[i].primary)))g.FillEllipse(b,x+10,725,8,8);
-            T(g,themes[i].name== "Vitality Flow"?"Flow":themes[i].name,11,i==model.ThemeIndex?Ink:Muted,x+24,721,80);
+        for(int i=0;i<themes.Length;i++) {
+            float x=365+i%5*132,y=704+i/5*36;
+            if(model.ThemeIndex==i)using(Brush b=new SolidBrush(Color.FromArgb(42,59,48)))Rect(g,b,x,y,126,32,10);
+            using(Brush b=new SolidBrush(themes[i].C(themes[i].primary)))g.FillEllipse(b,x+10,y+12,8,8);
+            T(g,themes[i].name== "Vitality Flow"?"Flow":themes[i].name,11,i==model.ThemeIndex?Ink:Muted,x+24,y+8,100);
         }
     }
     void Toggle(Graphics g,string name,bool on,int y) {
@@ -270,25 +278,15 @@ public sealed class WatchPreview : Form {
         }
         Color track=Color.FromArgb(45,muted);
         Arc(g,track,7,15,15,436,130,280);
-        Arc(g,primary,7,15,15,436,130,model.Simulated?230*Entrance:0);
-        RingHighlight(g,primary,15,15,436,130,230*Entrance,7);
+        float outerProgress=model.Screen==1?280*rewards.Points/60f:model.Simulated?230:0;
+        Arc(g,primary,7,15,15,436,130,outerProgress*Entrance);
+        RingHighlight(g,primary,15,15,436,130,outerProgress*Entrance,7);
         if(model.Screen==0) DrawHome(g,th,fg,muted,primary,secondary);
         else {
             T(g,Screens[model.Screen].ToUpperInvariant(),14,muted,65,75,336,true,true);
             Mark(g,211,22,44);
             if(model.Screen==1) {
-                Arc(g,track,13,133,114,200,130,280);
-                Arc(g,secondary,13,133,114,200,130,model.Simulated?230*Entrance:0);
-                RingHighlight(g,secondary,133,114,200,130,230*Entrance,13);
-                if(model.Simulated) {
-                    float breath=(float)(.5+.5*Math.Sin(animationTime*1.8));
-                    Arc(g,Color.FromArgb(20+(int)(25*breath),secondary),2,123-breath*3,104-breath*3,220+breath*6,0,359);
-                }
-                T(g,model.Simulated?((int)Math.Round(82*Entrance)).ToString():"--",74,fg,0,153,466,true,true);
-                T(g,model.Simulated?"ENERGIZED":"UNAVAILABLE",11,secondary,0,239,466,true,true);
-                Metric(g,"Movement",model.Simulated?"78":"--",99,324,primary);
-                Metric(g,"Recovery",model.Simulated?"88":"--",199,324,secondary);
-                Metric(g,"Sleep",model.Simulated?"84":"--",299,324,th.C(th.accent));
+                DrawRewards(g,fg,muted,primary,secondary,track);
             } else if(model.Screen==2) {
                 int heartSize=44+(model.Simulated?(int)(8*HeartPulse):0);
                 DrawIcon(g,"heart",233-heartSize/2f,135-heartSize/2f,heartSize);
@@ -308,11 +306,11 @@ public sealed class WatchPreview : Form {
             } else if(model.Screen==3) {
                 DrawIcon(g,"steps",211,119+(model.Workout?(float)Math.Sin(animationTime*8)*4:0),44);
                 T(g,model.Simulated?"8,421":"--",64,fg,0,170,466,true,true);
-                T(g,"OF 10,000 STEPS",11,muted,0,247,466,false,true);
+                T(g,"SAMPLE STEP COUNT",11,muted,0,247,466,false,true);
                 using(Brush b=new SolidBrush(track))Rect(g,b,107,280,252,7,3);
                 if(model.Simulated)using(Brush b=new SolidBrush(secondary))Rect(g,b,107,280,Math.Max(7,212*Entrance),7,3);
                 Action(g,model.Workout?"Stop demo workout":"Start demo workout",primary);
-                T(g,model.Workout?"Workout mode active":"Every step adds up.",13,muted,0,379,466,false,true);
+                T(g,model.Workout?"Workout mode active":"Follow your personal activity plan.",13,muted,0,379,466,false,true);
             } else if(model.Screen==4) {
                 DrawIcon(g,"environment",205,112+(float)Math.Sin(animationTime*1.7)*3,56);
                 T(g,model.Simulated?"26°":"--",76,fg,0,169,466,true,true);
@@ -323,12 +321,31 @@ public sealed class WatchPreview : Form {
             } else {
                 T(g,th.name,34,fg,40,157,386,true,true);
                 T(g,"MAKE IT YOURS",10,muted,0,211,466,false,true);
-                for(int i=0;i<6;i++)using(Brush b=new SolidBrush(themes[i].C(themes[i].primary)))g.FillEllipse(b,119+i*39,262,28,28);
+                for(int i=0;i<themes.Length;i++)using(Brush b=new SolidBrush(themes[i].C(themes[i].primary)))g.FillEllipse(b,91+i*29,270,22,22);
                 Action(g,"Change watch theme",primary);
                 T(g,"Battery "+(model.Simulated?"78%":"--")+"  /  Bluetooth unavailable",12,muted,0,383,466,false,true);
             }
         }
-        T(g,model.Simulated?"SIMULATED DATA":"NO SENSOR CONNECTION",9,muted,0,422,466,false,true);
+        T(g,model.Screen==1?"DEMO REWARDS / SELF-REPORTED":model.Simulated?"SIMULATED DATA":"NO SENSOR CONNECTION",9,muted,0,422,466,false,true);
+    }
+    void DrawRewards(Graphics g,Color fg,Color muted,Color primary,Color secondary,Color track) {
+        Arc(g,track,5,175,99,116,130,280);
+        Arc(g,secondary,5,175,99,116,130,280*rewards.Points/60f*Entrance);
+        float glow=2+(float)Math.Sin(animationTime*2);
+        using(Brush b=new SolidBrush(Color.FromArgb(35+(int)(25*glow),primary)))g.FillEllipse(b,223,92,20,20);
+        using(Brush b=new SolidBrush(primary))g.FillEllipse(b,230-glow,105-glow,glow*2,glow*2);
+        T(g,rewards.Points.ToString(),49,fg,0,121,466,true,true);
+        T(g,"OF 60 DAILY POINTS",9,muted,0,179,466,false,true);
+        T(g,"Tap a goal you completed today",11,secondary,0,205,466,false,true);
+        for(int i=0;i<3;i++) {
+            int y=228+i*39;bool done=rewards.Done(i);
+            using(Brush b=new SolidBrush(Color.FromArgb(done?48:22,primary)))Rect(g,b,100,y,266,33,10);
+            T(g,(done?"Done  ":"+20  ")+Rewards.Goals[i],12,done?secondary:fg,114,y+8,240,true);
+        }
+        bool ready=rewards.Points>=60;
+        using(Brush b=new SolidBrush(Color.FromArgb(ready?65:20,secondary)))Rect(g,b,118,351,230,38,17);
+        T(g,rewards.Claimed?"Balance badge earned":ready?"Claim Balance badge":"Balance badge / 60 pts",12,ready?secondary:muted,118,362,230,true,true);
+        T(g,rewards.Message,10,muted,50,397,366,false,true);
     }
     void DrawHome(Graphics g,Theme th,Color fg,Color muted,Color primary,Color secondary) {
         DateTime now=model.LiveClock?DateTime.Now:new DateTime(2024,4,23,10,8,0).AddSeconds(animationTime);
@@ -374,10 +391,11 @@ public sealed class WatchPreview : Form {
     void Render() {
         string output=Path.Combine(Root,"build","screenshots");Directory.CreateDirectory(output);
         using(Bitmap studio=new Bitmap(1120,780)) {using(Graphics g=Graphics.FromImage(studio))DrawStudio(g);studio.Save(Path.Combine(output,"studio.png"));}
-        using(Bitmap grid=new Bitmap(466*3,466*2)) {
+        model.Screen=0;
+        using(Bitmap grid=new Bitmap(466*5,466*2)) {
             using(Graphics g=Graphics.FromImage(grid)) {
                 g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=TextRenderingHint.AntiAliasGridFit;
-                for(int i=0;i<6;i++) {model.ThemeIndex=i;GraphicsState st=g.Save();g.TranslateTransform(i%3*466,i/3*466);g.SetClip(new Rectangle(0,0,466,466));DrawFace(g);g.Restore(st);}
+                for(int i=0;i<themes.Length;i++) {model.ThemeIndex=i;GraphicsState st=g.Save();g.TranslateTransform(i%5*466,i/5*466);g.SetClip(new Rectangle(0,0,466,466));DrawFace(g);g.Restore(st);}
             }
             grid.Save(Path.Combine(output,"themes.png"));
         }
@@ -386,6 +404,10 @@ public sealed class WatchPreview : Form {
             model.Screen=i;
             using(Bitmap b=new Bitmap(466,466)) {using(Graphics g=Graphics.FromImage(b)){g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=TextRenderingHint.AntiAliasGridFit;DrawFace(g);}b.Save(Path.Combine(output,"screen-"+i+".png"));}
         }
+        model.Screen=1;
+        for(int i=0;i<3;i++)rewards.Complete(i);
+        rewards.Claim();
+        using(Bitmap claimed=Frame(false))claimed.Save(Path.Combine(output,"rewards-earned.png"));
     }
     Bitmap Frame(bool transition) {
         Bitmap b=new Bitmap(466,466);
@@ -465,17 +487,26 @@ public sealed class WatchPreview : Form {
         model.Simulated=false;model.Measure();if(model.MeasurementSeconds!=0)throw new Exception("Unavailable measurement");
         model.Simulated=true;model.Measure();if(model.MeasurementSeconds!=10)throw new Exception("Start measurement");
         model.MeasurementStarted=DateTime.UtcNow.AddSeconds(-11);model.Tick();if(model.MeasurementSeconds!=0)throw new Exception("Finish measurement");
-        for(int i=0;i<6;i++)if(themes[i].name==null)throw new Exception("Missing theme");
+        for(int i=0;i<themes.Length;i++)if(themes[i].name==null)throw new Exception("Missing theme");
+        Rewards rewardTest=new Rewards();
+        if(rewardTest.Claim())throw new Exception("Early reward claim");
+        for(int i=0;i<3;i++) {
+            if(!rewardTest.Complete(i) || rewardTest.Complete(i))throw new Exception("Duplicate goal points");
+        }
+        if(rewardTest.Points!=60 || !rewardTest.Claim() || rewardTest.Claim())throw new Exception("Badge claim rules");
+        rewardTest.Refresh(DateTime.Today.AddDays(1).ToString("yyyy-MM-dd"));
+        if(rewardTest.Points!=0 || rewardTest.Claimed)throw new Exception("Daily reward reset");
         AnimationTests();
         File.WriteAllText(Path.Combine(Root,"build","preview-tests.txt"),
-            "PASS: navigation wrap, unavailable measurement, demo measurement lifecycle, six source themes.\r\n"+
+            "PASS: navigation wrap, unavailable measurement, demo measurement lifecycle, ten themes, unique daily goal points, badge eligibility and daily reset.\r\n"+
             "PASS: changing frames on all six screens, static sleep, no unavailable heart animation, transition start/middle/end, live timer ticks, sleeping timer pause.");
     }
     [STAThread] public static int Main(string[] args) {
         try {
             Application.EnableVisualStyles();
-            using(WatchPreview form=new WatchPreview()) {
-                if(args.Length>0 && args[0]=="--render") {form.SelfTest();form.model.Screen=0;form.Render();return 0;}
+            bool render=args.Length>0 && args[0]=="--render";
+            using(WatchPreview form=new WatchPreview(!render)) {
+                if(render) {form.SelfTest();form.model.Screen=1;form.Render();return 0;}
                 Application.Run(form);
             }
             return 0;

@@ -4,6 +4,12 @@ Current startup is UI-only. Firmware source and optional manual build helpers ar
 retained; the automatic SDK downloader and VS Code firmware build task were removed.
 
 Passed locally:
+- Rewards/themes update: 18 Python tests ran (17 passed, one native Unix setup
+  test skipped on Windows). Tests cover duplicate goal taps, badge eligibility,
+  persistence, daily rollover, corrupt-file recovery, sensor-independent rewards,
+  and theme/goal hit targets. Real Tk rendering passed all 60 screen/theme
+  combinations and animation/sleep checks. Windows render/self-tests passed
+  including daily reward rules; theme and reward screenshots were inspected.
 - UI-only startup: 13 Python tests ran, with 12 passing and one native Unix setup
   test skipped on Windows. The setup regression checks confirm there is no firmware
   task or SDK downloader and the Windows preparation stage needs zero downloads.

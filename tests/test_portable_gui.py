@@ -12,8 +12,8 @@ def main():
     window=tk.Tk()
     window.withdraw()
     try:
-        app=module.Preview(window,tk)
-        for theme in range(6):
+        app=module.Preview(window,tk,persist_rewards=False)
+        for theme in range(len(app.themes)):
             app.model.theme=theme
             for screen in range(6):
                 app.model.screen=screen
@@ -35,7 +35,7 @@ def main():
         assert app.model.elapsed==before, "Sleep should pause animation"
         assert any(app.canvas.itemcget(i,"text")=="Sleeping"
                    for i in app.canvas.find_all() if app.canvas.type(i)=="text")
-        print("PASS: Tk draws all 36 screen/theme combinations; live timer and sleep pause.")
+        print("PASS: Tk draws all 60 screen/theme combinations; live timer and sleep pause.")
     finally:
         window.destroy()
 

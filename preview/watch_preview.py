@@ -9,8 +9,9 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-THEMES = ("vitality_flow", "nature", "clinical", "sport", "minimal", "recovery")
-SCREENS = ("Watch face", "Vitality", "Heart rate", "Activity", "Environment", "Settings")
+THEMES = ("vitality_flow", "nature", "clinical", "sport", "minimal", "recovery",
+          "ocean", "sunrise", "lavender", "midnight")
+SCREENS = ("Watch face", "Vitality rewards", "Heart rate", "Activity", "Environment", "Settings")
 
 
 def load_themes(root=ROOT):
@@ -29,15 +30,79 @@ def wave(seconds):
                    (.30, .019, 24), (.35, .025, -12), (.58, .09, 6)))
 
 
+class Rewards:
+    """Local self-reported demo goals; sensor values never award points."""
+    GOALS = ("Daily check-in", "Personal care goal", "Rest & recharge")
+
+    def __init__(self, path=None, today=None):
+        self.path = Path(path) if path else None
+        self.today = today or (lambda: datetime.now().date().isoformat())
+        self.date, self.completed, self.claimed = "", [False]*3, False
+        self.message = "Small steps, at your own pace."
+        if self.path and self.path.exists():
+            try:
+                data = json.loads(self.path.read_text(encoding="utf-8"))
+                done = data["completed"]
+                if len(done) != 3 or any(type(item) is not bool for item in done):
+                    raise ValueError("Invalid goals")
+                self.date, self.completed = data["date"], done
+                self.claimed = data.get("badge_claimed") is True and all(done)
+            except (OSError, ValueError, KeyError, TypeError):
+                self.message = "Starting a fresh rewards demo."
+        self.refresh()
+
+    @property
+    def points(self):
+        return sum(self.completed)*20
+
+    def refresh(self):
+        today = self.today()
+        if self.date != today:
+            self.date, self.completed, self.claimed = today, [False]*3, False
+            self.message = "A fresh day. Start at your pace."
+
+    def complete(self, index):
+        self.refresh()
+        if not 0 <= index < 3 or self.completed[index]:
+            return False
+        self.completed[index] = True
+        self.message = "Your Balance badge is ready!" if self.points == 60 else "+20 points. Your effort counts."
+        self.save()
+        return True
+
+    def claim(self):
+        self.refresh()
+        if self.points < 60 or self.claimed:
+            return False
+        self.claimed = True
+        self.message = "Balance badge earned. Well done!"
+        self.save()
+        return True
+
+    def save(self):
+        if self.path is None:
+            return
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(dict(date=self.date, completed=self.completed,
+                                                badge_claimed=self.claimed)), encoding="utf-8")
+            temporary.replace(self.path)
+        except OSError:
+            self.message = "Progress is available this session only."
+
+
 class Model:
     def __init__(self):
-        self.screen = self.theme = 0
+        self.screen, self.theme = 1, 0
+        self.rewards = Rewards()
         self.simulated = self.live_clock = True
         self.sleeping = self.workout = False
         self.elapsed = self.entered = 0.0
         self.measure_started = None
 
     def tick(self, dt):
+        self.rewards.refresh()
         if not self.sleeping:
             self.elapsed += max(0, min(dt, .2))
 
@@ -101,16 +166,18 @@ class InstanceLock:
 
 
 class Preview:
-    def __init__(self, window, tk):
+    def __init__(self, window, tk, persist_rewards=True):
         self.tk, self.window = tk, window
         self.model, self.themes = Model(), load_themes()
+        if persist_rewards:
+            self.model.rewards = Rewards(ROOT / "build" / "rewards-portable.json")
         self.last = time.monotonic()
         window.title("Vitality / Portable Watch Studio")
         self.app_icon = tk.PhotoImage(file=str(ROOT / "assets" / "app" / "vitality.png"))
         window.iconphoto(True, self.app_icon)
         window.configure(bg="#101917")
         window.resizable(False, False)
-        self.canvas = tk.Canvas(window, width=940, height=670, bg="#101917", highlightthickness=0)
+        self.canvas = tk.Canvas(window, width=940, height=710, bg="#101917", highlightthickness=0)
         self.canvas.pack()
         self.drag = None
         self.canvas.bind("<ButtonPress-1>", lambda e: setattr(self, "drag", (e.x, e.y)))
@@ -172,8 +239,15 @@ class Preview:
                 m.set_simulated(not m.simulated)
             if 566 <= e.y <= 599:
                 m.live_clock = not m.live_clock
-        if 307 <= e.x < 925 and 617 <= e.y <= 661:
-            m.theme_next(min(5, (e.x-307)//103))
+        if 307 <= e.x < 922 and 620 <= e.y < 700:
+            m.theme_next((e.y-620)//40*5+(e.x-307)//123)
+        if not m.sleeping and m.screen == 1 and 530 <= e.x <= 796:
+            y = e.y-123
+            for i in range(3):
+                if 228+i*39 <= y < 261+i*39:
+                    m.rewards.complete(i)
+            if 351 <= y < 389:
+                m.rewards.claim()
         if 900 <= e.x <= 928 and 267 <= e.y <= 322:
             self.toggle_sleep()
         if not m.sleeping and 535 <= e.x <= 791 and 454 <= e.y <= 495:
@@ -198,7 +272,7 @@ class Preview:
         c, m = self.canvas, self.model
         th = self.themes[m.theme]
         c.delete("all")
-        c.create_rectangle(0,0,264,670,fill="#15221e",outline="")
+        c.create_rectangle(0,0,264,710,fill="#15221e",outline="")
         self.mark(26,28,42)
         self.text(78,49,"vitality",27,anchor="w",bold=True)
         self.text(30,99,"WATCH STUDIO",10,"#7e9390",anchor="w")
@@ -215,27 +289,29 @@ class Preview:
             x = 229 if on else 217
             c.create_oval(x-6,y-6,x+6,y+6,fill="#eef8f0",outline="")
         self.text(32,643,"Portable preview / simulated data",10,"#7e9390",anchor="w")
-        self.text(308,44,"A little more in balance.",28,anchor="w",bold=True)
-        self.text(308,80,"Your health. Your time. A better you.",14,"#7e9390",anchor="w")
+        self.text(308,44,"Small steps. Real encouragement.",26,anchor="w",bold=True)
+        self.text(308,80,"Vitality rewards / personal goals, at your own pace.",14,"#7e9390",anchor="w")
         c.create_oval(415,108,911,604,fill="#526359",outline="#71847a",width=2)
         c.create_oval(423,116,903,596,fill="#050a08",outline="")
         c.create_oval(430,123,896,589,fill="#000000" if m.sleeping else th["bg"],outline="")
         c.create_rectangle(904,269,925,320,fill="#526359",outline="")
         for i, theme in enumerate(self.themes):
-            x=307+i*103
+            x,y=307+i%5*123,620+i//5*40
             if i==m.theme:
-                c.create_rectangle(x,620,x+99,658,fill="#2a3b30",outline="")
-            c.create_oval(x+9,635,x+17,643,fill=theme["primary"],outline="")
-            self.text(x+24,639,theme["name"].replace("Vitality ",""),11,anchor="w")
+                c.create_rectangle(x,y,x+119,y+36,fill="#2a3b30",outline="")
+            c.create_oval(x+9,y+14,x+17,y+22,fill=theme["primary"],outline="")
+            self.text(x+24,y+18,theme["name"].replace("Vitality ",""),11,anchor="w")
         if m.sleeping:
             self.face_text(233,233,"Sleeping",18,"#7e9390")
             return
         t=m.elapsed
         progress=ease((t-m.entered)/.9)
         self.arc(445,138,436,"#2c3d40",7,130,280)
-        if m.simulated:
-            self.arc(445,138,436,th["primary"],7,130,230*progress)
-            self.arc(445,138,436,th["secondary"],7,130+(t*.2%1)*210*progress,14*progress)
+        if m.simulated or m.screen == 1:
+            outer_progress = 280*m.rewards.points/60 if m.screen == 1 else 230
+            self.arc(445,138,436,th["primary"],7,130,outer_progress*progress)
+            if outer_progress:
+                self.arc(445,138,436,th["secondary"],7,130+(t*.2%1)*max(0,outer_progress-14)*progress,14*progress)
         self.mark(641,150,44)
         self.face_text(233,91,SCREENS[m.screen].upper(),13,th["muted"],True)
         now=datetime.now() if m.live_clock else datetime(2024,4,23,10,8)+timedelta(seconds=t)
@@ -260,15 +336,24 @@ class Preview:
             if m.simulated:
                 self.heart(540,447,19+4*math.exp(-(((t*1.2)%1-.15)/.09)**2))
         elif m.screen==1:
-            self.arc(563,237,200,"#28373c",12,130,280)
-            if m.simulated:
-                self.arc(563,237,200,th["secondary"],12,130,230*progress)
-                self.arc(563,237,200,th["primary"],12,130+(t*.2%1)*210*progress,12*progress)
-            self.face_text(233,211,demo(str(round(82*progress))),70,bold=True)
-            self.face_text(233,264,"ENERGIZED" if m.simulated else "UNAVAILABLE",11,th["secondary"])
-            for x,value,label in ((110,"78","Movement"),(233,"88","Recovery"),(356,"84","Sleep")):
-                self.face_text(x,351,demo(value),24,th["secondary"],True)
-                self.face_text(x,386,label,10,th["muted"])
+            rewards=m.rewards
+            self.arc(605,222,116,th["muted"],4,130,280)
+            self.arc(605,222,116,th["secondary"],5,130,280*rewards.points/60*progress)
+            radius=2+math.sin(t*2)
+            c.create_oval(663-radius,228-radius,663+radius,228+radius,fill=th["primary"],outline="")
+            self.face_text(233,151,str(rewards.points),49,bold=True)
+            self.face_text(233,184,"OF 60 DAILY POINTS",9,th["muted"])
+            self.face_text(233,212,"Tap a goal you completed today",11,th["secondary"])
+            for i,label in enumerate(rewards.GOALS):
+                y=351+i*39
+                c.create_rectangle(530,y,796,y+33,fill=th["primary"] if rewards.completed[i] else th["bg"],
+                                   outline=th["primary"])
+                self.face_text(233,y-123+16,("Done  " if rewards.completed[i] else "+20  ")+label,
+                               12,th["bg"] if rewards.completed[i] else th["text"],True)
+            c.create_rectangle(548,474,778,512,fill=th["bg"],outline=th["secondary"])
+            label="Balance badge earned" if rewards.claimed else "Claim Balance badge" if rewards.points==60 else "Balance badge / 60 pts"
+            self.face_text(233,370,label,12,th["secondary"],True)
+            self.face_text(233,403,rewards.message,10,th["muted"])
         elif m.screen==2:
             size=35+(7*math.exp(-(((t*1.2)%1-.15)/.09)**2) if m.simulated else 0)
             self.heart(663,268,size)
@@ -285,12 +370,12 @@ class Preview:
             self.face_text(233,397,"SpO2 "+demo("98%"),12,th["muted"])
         elif m.screen==3:
             self.face_text(233,213,demo("8,421"),62,bold=True)
-            self.face_text(233,268,"OF 10,000 STEPS",11,th["muted"])
+            self.face_text(233,268,"SAMPLE STEP COUNT",11,th["muted"])
             c.create_line(537,417,789,417,fill="#28373c",width=7)
             if m.simulated:
                 c.create_line(537,417,537+212*progress,417,fill=th["secondary"],width=7)
             self.button("Stop demo workout" if m.workout else "Start demo workout",th)
-            self.face_text(233,397,"Workout active" if m.workout else "Every step adds up.",12,th["muted"])
+            self.face_text(233,397,"Workout active" if m.workout else "Follow your personal activity plan.",12,th["muted"])
         elif m.screen==4:
             self.face_text(233,217,demo("26°"),74,bold=True)
             self.face_text(233,270,"AMBIENT TEMPERATURE",10,th["muted"])
@@ -303,10 +388,10 @@ class Preview:
             self.face_text(233,205,th["name"],33,bold=True)
             self.face_text(233,253,"MAKE IT YOURS",10,th["muted"])
             for i,theme in enumerate(self.themes):
-                c.create_oval(550+i*39,399,578+i*39,427,fill=theme["primary"],outline="")
+                c.create_oval(518+i*30,399,540+i*30,421,fill=theme["primary"],outline="")
             self.button("Change watch theme",th)
             self.face_text(233,397,"Battery "+demo("78%")+" / Bluetooth unavailable",11,th["muted"])
-        self.face_text(233,430,"SIMULATED DATA" if m.simulated else "NO SENSOR CONNECTION",9,th["muted"])
+        self.face_text(233,430,"DEMO REWARDS / SELF-REPORTED" if m.screen==1 else "SIMULATED DATA" if m.simulated else "NO SENSOR CONNECTION",9,th["muted"])
 
     def button(self, label, theme):
         self.canvas.create_rectangle(535,454,791,495,fill="#19373c",outline="")

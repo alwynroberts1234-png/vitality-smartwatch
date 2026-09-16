@@ -22,7 +22,7 @@ if ($needsIcon) {
     & $iconBuilder $iconSources[0] $icon $iconPng
     if ($LASTEXITCODE -ne 0) { throw 'App icon generation failed' }
 }
-$sources=@((Join-Path $root 'preview\WatchPreview.cs'), (Join-Path $root 'tools\VectorAssets.cs'), $PSCommandPath)
+$sources=@((Join-Path $root 'preview\WatchPreview.cs'), (Join-Path $root 'tools\VectorAssets.cs'), (Join-Path $root 'preview\Rewards.cs'), $PSCommandPath)
 $needsBuild=-not (Test-Path -LiteralPath $exe)
 if (-not $needsBuild) {
     $built=(Get-Item -LiteralPath $exe).LastWriteTimeUtc
@@ -31,7 +31,7 @@ if (-not $needsBuild) {
 if ($needsBuild) {
     # Compile before touching the working preview, so a compilation error leaves it available.
     $staged=Join-Path $out 'VitalityPreview.next.exe'
-    & $csc /nologo /target:winexe /optimize+ /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll "/win32icon:$icon" "/out:$staged" $sources[0] $sources[1]
+    & $csc /nologo /target:winexe /optimize+ /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll "/win32icon:$icon" "/out:$staged" $sources[0] $sources[1] $sources[2]
     if($LASTEXITCODE -ne 0){throw 'Preview compilation failed'}
     $running=@(Get-Process VitalityPreview -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe})
     foreach($process in $running) {
