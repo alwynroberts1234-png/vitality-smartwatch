@@ -5,10 +5,11 @@
       "label": "Vitality: Open project",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "Vitality: 1. Detect OS",
-        "Vitality: 2. Check UI environment",
-        "Vitality: 3. Prepare UI environment",
-        "Vitality: 4. Show watch design"
+        "Vitality: 1. Run bluetooth environment setup",
+        "Vitality: 2. Detect OS",
+        "Vitality: 3. Check UI environment",
+        "Vitality: 4. Prepare UI environment",
+        "Vitality: 5. Show watch design"
       ],
       "runOptions": {
         "runOn": "folderOpen"
