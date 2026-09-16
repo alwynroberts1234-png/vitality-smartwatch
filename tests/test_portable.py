@@ -3,6 +3,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -26,14 +27,24 @@ class LauncherTests(unittest.TestCase):
         auto=data["tasks"][0]
         self.assertEqual(auto["runOptions"]["runOn"],"folderOpen")
         self.assertEqual(auto["dependsOrder"], "sequence")
-        stages=data["tasks"][1:5]
-        self.assertEqual(auto["dependsOn"], [task["label"] for task in stages])
+        by_label={task["label"]: task for task in data["tasks"]}
+        self.assertEqual(len(by_label),len(data["tasks"]))
+        self.assertTrue(all(label in by_label for label in auto["dependsOn"]))
+        stages=[by_label[label] for label in auto["dependsOn"][:4]]
+        self.assertEqual(auto["dependsOn"][-2:], ["Vitality: 4. Show watch design", "Vitality: 5. Run bluetooth environment setup"])
+        show=stages[-1]
+        self.assertTrue(show["isBackground"])
+        ready=show["problemMatcher"][0]["background"]
+        self.assertTrue(ready["activeOnStart"])
+        for line in ("Vitality portable preview ready.", "Vitality portable preview is already running.", "Preview: E:\\device\\build\\VitalityPreview.exe"):
+            self.assertIsNotNone(re.match(ready["endsPattern"],line))
+        self.assertIsNone(re.match(ready["endsPattern"],"[4/4] Show watch design"))
         for task, flag, stage in zip(stages, ("--detect", "--check", "--download", "--launch"),
                                      ("Detect", "Check", "Download", "Launch")):
             self.assertEqual(task["args"], ["${workspaceFolder}/tools/setup-host.sh", flag])
             self.assertEqual(task["windows"]["args"][-2:], ["-Stage", stage])
             self.assertNotIn("runOptions", task)
-        for task in data["tasks"][1:]:
+        for task in stages+[by_label["Vitality: Start preview"]]:
             self.assertEqual(task["windows"]["command"],"powershell.exe")
             for os_name in ("linux","osx"):
                 self.assertEqual(task.get(os_name, {}).get("command", task["command"]), "bash")

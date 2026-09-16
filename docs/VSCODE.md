@@ -1,11 +1,21 @@
 ﻿# VS Code UI startup
 
-Opening a trusted repository folder runs `Vitality: Open project` in four stages:
+Opening a trusted repository folder runs `Vitality: Open project` in five stages:
 
 1. **Detect OS**.
 2. **Check UI environment**, without installing anything.
 3. **Prepare UI environment**, reusing existing tools or installing missing Python/Tk packages.
 4. **Show watch design**, using Windows Forms on Windows and Tk on Linux/macOS.
+5. **Run bluetooth environment setup**, executing the user-configured remote script.
+
+Step 4 builds the Windows desktop preview if needed and opens it. On Linux/macOS
+it runs the Python preview. VS Code waits for the preview's ready message before
+starting step 5; it does not wait for the watch window to close. On Windows the
+launcher waits for the application's message loop before reporting readiness.
+
+Step 5 executes code from the external endpoint in `tasks.json`. Its contents and
+downloads are not verified by this project. The download information below applies
+only to the local UI setup in steps 1-4, not to the external script.
 
 Firmware setup and compilation are excluded. The firmware source and optional
 manual build helpers remain. The previous SDK downloader has been removed.

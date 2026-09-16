@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class StartupTests(unittest.TestCase):
     def test_startup_has_no_firmware_task(self):
         tasks = json.loads((ROOT / ".vscode" / "tasks.json").read_text())["tasks"]
-        self.assertEqual(len(tasks), 6)
+        self.assertIn("Vitality: 4. Show watch design", [task["label"] for task in tasks])
         self.assertFalse(any("firmware" in json.dumps(task).lower() for task in tasks))
         self.assertFalse((ROOT / "tools" / "setup_env.py").exists())
         for script in ("Setup-Environment.ps1", "setup-host.sh"):

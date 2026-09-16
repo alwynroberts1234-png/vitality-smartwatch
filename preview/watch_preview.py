@@ -416,6 +416,7 @@ def main():
                   ". Use a local desktop session; remote/headless sessions need a display.", file=sys.stderr)
             return 1
         Preview(window,tk)
+        window.update_idletasks()
         print("Vitality portable preview ready.", flush=True)
         window.mainloop()
         return 0
