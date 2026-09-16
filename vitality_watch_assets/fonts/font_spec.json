@@ -1,0 +1,16 @@
+{
+  "note": "Font binaries are intentionally not bundled. Use system/open-source fonts in your build pipeline.",
+  "recommended": {
+    "primary": "Inter",
+    "numeric": "Roboto Condensed or Inter Tight",
+    "fallback": "DejaVu Sans"
+  },
+  "lvgl_sizes": {
+    "caption": 16,
+    "body": 20,
+    "subtitle": 24,
+    "title": 30,
+    "metric": 52,
+    "time": 84
+  }
+}

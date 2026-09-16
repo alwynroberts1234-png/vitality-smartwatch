@@ -1,0 +1,9 @@
+{
+  "name": "Minimal",
+  "bg": "#000000",
+  "primary": "#FFFFFF",
+  "secondary": "#FFFFFF",
+  "accent": "#FFFFFF",
+  "text": "#FFFFFF",
+  "muted": "#8B8B8B"
+}

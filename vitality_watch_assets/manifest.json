@@ -1,0 +1,124 @@
+{
+  "package": "Vitality Watch Assets",
+  "version": "1.0.0",
+  "target": {
+    "display": "round AMOLED",
+    "resolution": "466x466",
+    "framework": "LVGL / Zephyr / nRF52840"
+  },
+  "logo": {
+    "source": "user supplied",
+    "files": [
+      "vitality_logo_128.png",
+      "vitality_logo_256.png",
+      "vitality_logo_512.png",
+      "vitality_logo_64.png",
+      "vitality_mark_128.png",
+      "vitality_mark_256.png",
+      "vitality_mark_32.png",
+      "vitality_mark_48.png",
+      "vitality_mark_64.png",
+      "vitality_mark_96.png",
+      "vitality_mark_navy_128.png",
+      "vitality_mark_white_128.png"
+    ]
+  },
+  "icons": {
+    "heart": {
+      "svg": "icons/heart.svg",
+      "png_64": "icons/heart_64.png"
+    },
+    "spo2": {
+      "svg": "icons/spo2.svg",
+      "png_64": "icons/spo2_64.png"
+    },
+    "steps": {
+      "svg": "icons/steps.svg",
+      "png_64": "icons/steps_64.png"
+    },
+    "sleep": {
+      "svg": "icons/sleep.svg",
+      "png_64": "icons/sleep_64.png"
+    },
+    "temperature": {
+      "svg": "icons/temperature.svg",
+      "png_64": "icons/temperature_64.png"
+    },
+    "humidity": {
+      "svg": "icons/humidity.svg",
+      "png_64": "icons/humidity_64.png"
+    },
+    "altitude": {
+      "svg": "icons/altitude.svg",
+      "png_64": "icons/altitude_64.png"
+    },
+    "environment": {
+      "svg": "icons/environment.svg",
+      "png_64": "icons/environment_64.png"
+    },
+    "battery": {
+      "svg": "icons/battery.svg",
+      "png_64": "icons/battery_64.png"
+    },
+    "bluetooth": {
+      "svg": "icons/bluetooth.svg",
+      "png_64": "icons/bluetooth_64.png"
+    },
+    "settings": {
+      "svg": "icons/settings.svg",
+      "png_64": "icons/settings_64.png"
+    },
+    "workout": {
+      "svg": "icons/workout.svg",
+      "png_64": "icons/workout_64.png"
+    },
+    "timer": {
+      "svg": "icons/timer.svg",
+      "png_64": "icons/timer_64.png"
+    },
+    "alarm": {
+      "svg": "icons/alarm.svg",
+      "png_64": "icons/alarm_64.png"
+    },
+    "notification": {
+      "svg": "icons/notification.svg",
+      "png_64": "icons/notification_64.png"
+    },
+    "compass": {
+      "svg": "icons/compass.svg",
+      "png_64": "icons/compass_64.png"
+    },
+    "body": {
+      "svg": "icons/body.svg",
+      "png_64": "icons/body_64.png"
+    },
+    "vitality": {
+      "svg": "icons/vitality.svg",
+      "png_64": "icons/vitality_64.png"
+    }
+  },
+  "watchfaces": [
+    "watchface_minimal.svg",
+    "watchface_nature.svg",
+    "watchface_sport.svg",
+    "watchface_clinical.svg",
+    "watchface_recovery.svg",
+    "watchface_vitality_flow.svg"
+  ],
+  "animations": [
+    "vitality_ring_spritesheet.png",
+    "heart_measure.json",
+    "boot_pulse.json",
+    "vitality_ring.json",
+    "boot_pulse_spritesheet.png",
+    "heart_measure_spritesheet.png"
+  ],
+  "themes": [
+    "recovery.json",
+    "nature.json",
+    "vitality_flow.json",
+    "minimal.json",
+    "sport.json",
+    "clinical.json"
+  ]
+}

@@ -1,0 +1,10 @@
+build*/
+.west/
+.tools/
+qspi_image/output/
+*.obj
+*.pdb
+*.exe
+
+__pycache__/
+*.pyc

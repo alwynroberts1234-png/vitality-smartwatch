@@ -1,0 +1,1478 @@
+One important implementation detail: keep the SVG files as your master assets, but convert the icons you actually use into LVGL-compatible C arrays or RGB565 assets during your firmware build. For nRF52840, I would avoid loading dozens of large PNGs directly into internal flash. External QSPI flash is much better for watchfaces, animations, and larger graphics  
+ iwill use qspi flasah
+
+Yes — QSPI flash is the right choice for this watch. ⚡⌚ It lets you keep the nRF52840’s internal flash mostly for firmware while storing watchfaces, icons, fonts, animations, and other UI assets externally.
+
+For this project, I’d use roughly this memory architecture:
+
+nRF52840
+├── Internal Flash — 1 MB
+│   ├── Bootloader / MCUboot
+│   ├── Zephyr / nRF Connect SDK
+│   ├── Application firmware
+│   ├── BLE services
+│   ├── Sensor drivers
+│   ├── Vitality engine
+│   └── Small critical configuration
+│
+├── Internal RAM — 256 KB
+│   ├── LVGL buffers
+│   ├── Sensor buffers
+│   ├── BLE buffers
+│   └── Application state
+│
+└── External QSPI Flash — 8–32 MB
+    ├── logos/
+    ├── icons/
+    ├── fonts/
+    ├── watchfaces/
+    ├── animations/
+    ├── themes/
+    ├── cached health graphs
+    └── optional OTA image
+
+A full 466×466 RGB565 image needs about:
+
+466 × 466 × 2 bytes
+≈ 434 KB
+
+So just six full-screen watchfaces would already use roughly:
+
+434 KB × 6
+≈ 2.6 MB
+
+That is one reason I would not put these assets in the nRF52840’s 1 MB internal flash.
+
+For your watch, a good target is:
+
+QSPI Flash
+16 MB recommended
+
+Examples:
+W25Q128
+MX25R128
+GD25Q128
+
+If you want many animated watchfaces, larger fonts, and future downloadable themes, I’d go directly to 32 MB.
+
+Your storage layout could be:
+
+QSPI FLASH
+0x000000
+│
+├── 0x000000  Asset Table
+│
+├── 0x010000  Logos
+│
+├── 0x020000  Icons
+│
+├── 0x080000  Fonts
+│
+├── 0x180000  Watchfaces
+│
+├── 0x500000  Animations
+│
+├── 0x900000  Themes
+│
+├── 0xA00000  Health History
+│
+├── 0xB00000  Settings Backup
+│
+└── 0xC00000  OTA / Reserved
+
+I would actually organize the QSPI assets logically like this:
+
+qspi/
+├── asset_manifest.bin
+│
+├── logo/
+│   ├── vitality_mark.bin
+│   └── vitality_logo.bin
+│
+├── icons/
+│   ├── heart.bin
+│   ├── spo2.bin
+│   ├── steps.bin
+│   ├── sleep.bin
+│   ├── battery.bin
+│   ├── bluetooth.bin
+│   └── settings.bin
+│
+├── fonts/
+│   ├── font_16.bin
+│   ├── font_20.bin
+│   ├── font_24.bin
+│   ├── font_32.bin
+│   ├── font_52.bin
+│   └── font_84.bin
+│
+├── watchfaces/
+│   ├── vitality_flow.bin
+│   ├── nature.bin
+│   ├── sport.bin
+│   ├── minimal.bin
+│   ├── clinical.bin
+│   └── recovery.bin
+│
+├── animations/
+│   ├── vitality_ring.bin
+│   ├── boot.bin
+│   └── heart_measure.bin
+│
+└── themes/
+    ├── vitality_flow.bin
+    ├── nature.bin
+    ├── sport.bin
+    └── recovery.bin
+
+For LVGL, the flow should be:
+
+QSPI Flash
+    │
+    ▼
+QSPI Driver
+    │
+    ▼
+Asset Manager
+    │
+    ▼
+LVGL Image Decoder
+    │
+    ▼
+LVGL Widget
+    │
+    ▼
+AMOLED
+
+So instead of doing:
+
+LV_IMG_DECLARE(heart_icon);
+lv_img_set_src(img, &heart_icon);
+
+for every large asset compiled into firmware, you can use something like:
+
+lv_img_set_src(img, "Q:/icons/heart.bin");
+
+with a custom LVGL filesystem driver where:
+
+Q:
+
+represents the external QSPI flash.
+
+Your firmware structure would then gain a dedicated asset subsystem:
+
+firmware/src/
+├── assets/
+│   ├── asset_manager.c
+│   ├── asset_manager.h
+│   ├── asset_cache.c
+│   ├── asset_cache.h
+│   ├── qspi_fs.c
+│   └── qspi_fs.h
+│
+├── storage/
+│   ├── qspi_flash.c
+│   ├── littlefs.c
+│   └── flash_partition.c
+│
+└── ui/
+    ├── watchfaces/
+    ├── screens/
+    └── components/
+
+I would use an API similar to:
+
+typedef enum {
+    ASSET_LOGO,
+    ASSET_ICON,
+    ASSET_FONT,
+    ASSET_WATCHFACE,
+    ASSET_ANIMATION,
+} asset_type_t;
+
+typedef struct {
+    uint32_t address;
+    uint32_t size;
+    uint16_t width;
+    uint16_t height;
+    uint8_t format;
+} asset_info_t;
+
+Then the UI could do:
+
+asset_info_t asset;
+
+asset_get(
+    ASSET_ICON,
+    "heart",
+    &asset
+);
+
+ui_draw_asset(&asset);
+
+For image format, I recommend primarily:
+
+Icons:
+ARGB8888
+or
+RGB565 + alpha mask
+
+Watchfaces:
+RGB565
+
+Static backgrounds:
+RGB565
+
+Animations:
+RGB565
+or indexed color
+
+Fonts:
+LVGL binary font format
+
+For example:
+
+466 × 466 RGB565
+≈ 434 KB
+
+128 × 128 RGB565
+≈ 32 KB
+
+64 × 64 RGB565
+≈ 8 KB
+
+48 × 48 RGB565
+≈ 4.5 KB
+
+That is very manageable with 16–32 MB QSPI.
+
+One especially useful design is to keep frequently used tiny assets cached in RAM:
+
+QSPI
+ │
+ ├── Watchface background
+ ├── Large graphics
+ ├── Fonts
+ └── Animations
+       │
+       ▼
+  Asset Cache
+       │
+       ├── Heart icon
+       ├── Battery icon
+       ├── Bluetooth icon
+       └── Current font glyphs
+              │
+              ▼
+             RAM
+
+That prevents constant flash reads while still avoiding wasting RAM.
+
+For the PCB, the QSPI chip should be physically close to the nRF52840:
+
+               nRF52840
+             ┌────────────┐
+             │            │
+P0.xx ───────│ QSPI SCK   │
+P0.xx ───────│ QSPI CS    │
+P0.xx ───────│ QSPI IO0   │
+P0.xx ───────│ QSPI IO1   │
+P0.xx ───────│ QSPI IO2   │
+P0.xx ───────│ QSPI IO3   │
+             │            │
+             └──────┬─────┘
+                    │
+              short traces
+                    │
+              ┌─────▼─────┐
+              │ QSPI Flash│
+              │   16 MB   │
+              └───────────┘
+
+Add a 100 nF decoupling capacitor immediately beside the flash VCC pin, and I’d also provide a nearby bulk capacitor around 1 µF. Keep the QSPI traces short and avoid routing them through the BLE antenna area.
+
+For the Vitality watch specifically, I’d choose the architecture:
+
+nRF52840
++
+16 or 32 MB QSPI Flash
++
+466×466 AMOLED
++
+LVGL
++
+Zephyr / nRF Connect SDK
+
+That combination gives you enough storage freedom to make the UI much richer — multiple themes, real image-based watchfaces, animations, larger fonts, and future downloadable asset packs — without squeezing everything into MCU flash. 🌿⚡
+
+ok. based on you generated give me whole structure to build project with codex.
+i mean the whole system structure and give a specification and sensor's name and data.
+
+
+Yes. For Codex, the best approach is to give it a single, explicit engineering specification and repository layout rather than asking it to “build a smartwatch.” Below is a complete watch-side specification based on what we designed: nRF52840, external QSPI assets, LVGL UI, Vitality design system, modular sensors, BLE, storage, power management, and OTA. ⌚⚡
+
+You can save this essentially as PROJECT_SPEC.md and let Codex implement it module by module.
+
+Vitality Smartwatch — System Specification
+1. Product target
+Product: Vitality Smartwatch
+Platform: Nordic nRF52840
+RTOS: Zephyr RTOS / nRF Connect SDK
+UI: LVGL
+Display: 1.43" round AMOLED
+Resolution: 466 × 466
+Color: RGB565
+Touch: capacitive
+Connectivity: Bluetooth Low Energy
+External Storage: QSPI NOR Flash
+Battery: 250–400 mAh Li-Po
+Firmware Update: MCUboot + BLE DFU
+Primary Language: C
+Build: CMake + west + Zephyr
+
+The architecture is:
+
+                     VITALITY WATCH
+                          │
+       ┌──────────────────┼──────────────────┐
+       │                  │                  │
+     UI/LVGL          Vitality Engine     BLE/OTA
+       │                  │                  │
+       └──────────────┬───┴──────────────┬───┘
+                      │                  │
+                App / Event Layer    Storage
+                      │                  │
+              ┌───────┼─────────┐       │
+              │       │         │       │
+           Health   Sensors    Power    QSPI
+              │       │         │       │
+              └───────┼─────────┘       │
+                      │                 │
+                    Zephyr              │
+                      │                 │
+              ┌───────┴─────────────────┘
+              │
+          nRF52840
+              │
+ ┌────────────┼──────────────────────────────┐
+ │            │         │          │         │
+PPG          IMU     Environment  AMOLED    BLE
+ │            │         │
+HR/SpO₂     Motion    Temp/RH/
+                     Pressure
+2. Recommended hardware
+Function	Component	Interface	Purpose
+MCU	nRF52840-QIAA	—	Main processor + BLE
+QSPI storage	W25Q256JV	QSPI	32 MB assets/data
+Heart/SpO₂	MAX30102	I²C	PPG red + IR
+IMU	BMI270	I²C/SPI	Accelerometer + gyro
+Skin temperature	MAX30208	I²C	Contact temperature
+Humidity/environment	SHT40	I²C	Temperature + RH
+Pressure	BMP390	I²C/SPI	Pressure + altitude
+Compass	LIS2MDL	I²C	Magnetometer
+Fuel gauge	MAX17048	I²C	Battery SOC
+RTC	RV-3028-C7	I²C	Low-power timekeeping
+Touch	CST816S	I²C	Capacitive touch
+Haptic driver	DRV2605L	I²C	LRA/ERM vibration
+Display	1.43" 466×466 AMOLED	SPI	Watch UI
+Charger/PMIC	BQ25120A-class	I²C/GPIO	Li-Po charging/power
+Battery	3.7 V Li-Po	—	250–400 mAh
+
+For the display controller, keep the driver abstract until the exact AMOLED module is selected. Common 466×466 panels use controllers in the RM67162/SH8601 family.
+
+For glucose, do not implement a fake “wrist glucose sensor.” Reserve an interface for a validated CGM/biosensor:
+
+CGM / Bio Expansion
+├── I²C
+├── SPI
+├── ADC input
+├── GPIO interrupt
+├── 1.8 V
+├── 3.3 V
+├── VBAT
+└── GND
+3. Sensor outputs
+
+Codex should expose normalized sensor data independent of the physical chip.
+
+Sensor	Main output	Units	Suggested rate
+MAX30102	Heart rate	BPM	1 processed value/s
+MAX30102	SpO₂	%	1 value/s
+MAX30102	Raw red PPG	ADC counts	50–100 Hz
+MAX30102	Raw IR PPG	ADC counts	50–100 Hz
+BMI270	Acceleration X/Y/Z	m/s²	25 Hz idle / 100 Hz workout
+BMI270	Gyroscope X/Y/Z	°/s	25–100 Hz
+BMI270	Steps	steps	event / periodic
+MAX30208	Skin temperature	°C	0.2–1 Hz
+SHT40	Ambient temperature	°C	0.1–1 Hz
+SHT40	Relative humidity	%RH	0.1–1 Hz
+BMP390	Pressure	hPa	1–25 Hz
+Derived	Altitude	meters	1–10 Hz
+LIS2MDL	Magnetic X/Y/Z	µT	10–20 Hz
+Derived	Heading	degrees	10 Hz
+MAX17048	Battery	%	every 10–60 s
+MAX17048	Battery voltage	V	every 10–60 s
+RTC	Timestamp	Unix ms	system
+Touch	x/y/event	px/event	interrupt
+
+A common structure:
+
+typedef struct {
+    uint64_t timestamp_ms;
+
+    float heart_rate_bpm;
+    float spo2_percent;
+
+    float accel_x;
+    float accel_y;
+    float accel_z;
+
+    float gyro_x;
+    float gyro_y;
+    float gyro_z;
+
+    uint32_t steps;
+
+    float skin_temp_c;
+    float ambient_temp_c;
+    float humidity_percent;
+
+    float pressure_hpa;
+    float altitude_m;
+
+    float magnetic_x;
+    float magnetic_y;
+    float magnetic_z;
+    float heading_deg;
+
+    float battery_voltage;
+    uint8_t battery_percent;
+} vitality_sensor_snapshot_t;
+4. Vitality-specific data model
+
+The product should not just expose sensor numbers.
+
+It should produce a higher-level daily state:
+
+typedef struct {
+    uint8_t vitality_score;    // 0–100
+    uint8_t activity_score;    // 0–100
+    uint8_t recovery_score;    // 0–100
+    uint8_t sleep_score;       // 0–100
+    uint8_t balance_score;     // 0–100
+
+    uint16_t heart_rate;
+    uint8_t spo2;
+    uint32_t steps;
+
+    float skin_temperature;
+    float altitude;
+
+    uint8_t battery_percent;
+
+    bool workout_active;
+    bool bluetooth_connected;
+    bool charging;
+} vitality_state_t;
+
+Initially, the scores should be marked as wellness/experimental rather than medical metrics.
+
+Start with deterministic placeholder algorithms so Codex can implement the architecture:
+
+Vitality Score
+     │
+     ├── 35% Activity
+     ├── 30% Recovery/Sleep
+     ├── 20% Heart trend
+     └── 15% Daily balance
+
+Later you can replace these algorithms without changing the UI.
+
+5. Complete repository structure
+vitality-watch/
+│
+├── README.md
+├── PROJECT_SPEC.md
+├── VERSION
+├── CMakeLists.txt
+├── west.yml
+│
+├── config/
+│   ├── prj.conf
+│   ├── debug.conf
+│   ├── release.conf
+│   ├── power_test.conf
+│   └── factory_test.conf
+│
+├── boards/
+│   └── vitality_nrf52840/
+│       ├── vitality_nrf52840.dts
+│       ├── vitality_nrf52840.overlay
+│       ├── vitality_nrf52840_defconfig
+│       ├── Kconfig.board
+│       ├── Kconfig.defconfig
+│       └── board.cmake
+│
+├── src/
+│   │
+│   ├── main.c
+│   │
+│   ├── app/
+│   │   ├── app_manager.c
+│   │   ├── app_manager.h
+│   │   ├── state_machine.c
+│   │   ├── state_machine.h
+│   │   ├── event_manager.c
+│   │   ├── event_manager.h
+│   │   └── events.h
+│   │
+│   ├── ui/
+│   │   ├── ui_manager.c
+│   │   ├── ui_manager.h
+│   │   │
+│   │   ├── core/
+│   │   │   ├── navigation.c
+│   │   │   ├── navigation.h
+│   │   │   ├── theme_manager.c
+│   │   │   ├── animation_manager.c
+│   │   │   └── ui_events.c
+│   │   │
+│   │   ├── screens/
+│   │   │   ├── boot_screen.c
+│   │   │   ├── home_screen.c
+│   │   │   ├── vitality_screen.c
+│   │   │   ├── app_menu_screen.c
+│   │   │   ├── heart_rate_screen.c
+│   │   │   ├── spo2_screen.c
+│   │   │   ├── activity_screen.c
+│   │   │   ├── workout_screen.c
+│   │   │   ├── sleep_screen.c
+│   │   │   ├── body_screen.c
+│   │   │   ├── environment_screen.c
+│   │   │   ├── altitude_screen.c
+│   │   │   ├── compass_screen.c
+│   │   │   ├── notifications_screen.c
+│   │   │   ├── timer_screen.c
+│   │   │   ├── alarm_screen.c
+│   │   │   ├── battery_screen.c
+│   │   │   └── settings_screen.c
+│   │   │
+│   │   ├── watchfaces/
+│   │   │   ├── vitality_flow.c
+│   │   │   ├── nature.c
+│   │   │   ├── clinical.c
+│   │   │   ├── sport.c
+│   │   │   ├── minimal.c
+│   │   │   └── recovery.c
+│   │   │
+│   │   ├── components/
+│   │   │   ├── vitality_ring.c
+│   │   │   ├── vitality_score.c
+│   │   │   ├── metric_card.c
+│   │   │   ├── waveform.c
+│   │   │   ├── progress_arc.c
+│   │   │   ├── status_bar.c
+│   │   │   ├── app_icon.c
+│   │   │   ├── action_button.c
+│   │   │   └── notification_card.c
+│   │   │
+│   │   └── themes/
+│   │       ├── vitality_flow.c
+│   │       ├── nature.c
+│   │       ├── clinical.c
+│   │       ├── sport.c
+│   │       ├── minimal.c
+│   │       └── recovery.c
+│   │
+│   ├── assets/
+│   │   ├── asset_manager.c
+│   │   ├── asset_manager.h
+│   │   ├── asset_cache.c
+│   │   ├── asset_cache.h
+│   │   ├── asset_manifest.c
+│   │   └── lvgl_qspi_fs.c
+│   │
+│   ├── display/
+│   │   ├── display_manager.c
+│   │   ├── display_driver.c
+│   │   ├── display_power.c
+│   │   ├── brightness.c
+│   │   └── always_on.c
+│   │
+│   ├── touch/
+│   │   ├── cst816s.c
+│   │   ├── touch_manager.c
+│   │   └── gesture_detector.c
+│   │
+│   ├── sensors/
+│   │   ├── sensor_manager.c
+│   │   ├── sensor_manager.h
+│   │   ├── sensor_interface.h
+│   │   │
+│   │   ├── max30102/
+│   │   │   ├── max30102.c
+│   │   │   ├── max30102.h
+│   │   │   ├── ppg_processor.c
+│   │   │   └── spo2_algorithm.c
+│   │   │
+│   │   ├── bmi270/
+│   │   │   ├── bmi270.c
+│   │   │   ├── step_counter.c
+│   │   │   └── orientation.c
+│   │   │
+│   │   ├── max30208/
+│   │   │   └── max30208.c
+│   │   │
+│   │   ├── sht40/
+│   │   │   └── sht40.c
+│   │   │
+│   │   ├── bmp390/
+│   │   │   ├── bmp390.c
+│   │   │   └── altitude.c
+│   │   │
+│   │   ├── lis2mdl/
+│   │   │   ├── lis2mdl.c
+│   │   │   └── compass.c
+│   │   │
+│   │   └── bio/
+│   │       ├── bio_interface.c
+│   │       ├── ecg_interface.c
+│   │       ├── eda_interface.c
+│   │       └── cgm_interface.c
+│   │
+│   ├── vitality/
+│   │   ├── vitality_engine.c
+│   │   ├── vitality_engine.h
+│   │   ├── activity_score.c
+│   │   ├── recovery_score.c
+│   │   ├── sleep_score.c
+│   │   ├── balance_score.c
+│   │   └── trend_engine.c
+│   │
+│   ├── health/
+│   │   ├── health_manager.c
+│   │   ├── workout_manager.c
+│   │   ├── sleep_manager.c
+│   │   ├── activity_manager.c
+│   │   ├── calorie_estimator.c
+│   │   └── health_history.c
+│   │
+│   ├── bluetooth/
+│   │   ├── ble_manager.c
+│   │   ├── pairing.c
+│   │   ├── health_service.c
+│   │   ├── notification_service.c
+│   │   ├── battery_service.c
+│   │   └── ota_service.c
+│   │
+│   ├── power/
+│   │   ├── power_manager.c
+│   │   ├── battery_manager.c
+│   │   ├── charger.c
+│   │   ├── max17048.c
+│   │   └── sleep_manager.c
+│   │
+│   ├── storage/
+│   │   ├── qspi_flash.c
+│   │   ├── littlefs.c
+│   │   ├── settings_storage.c
+│   │   ├── health_storage.c
+│   │   └── storage_manager.c
+│   │
+│   ├── time/
+│   │   ├── time_manager.c
+│   │   ├── rv3028.c
+│   │   ├── alarm.c
+│   │   ├── timer.c
+│   │   └── stopwatch.c
+│   │
+│   ├── haptics/
+│   │   ├── drv2605l.c
+│   │   ├── haptic_manager.c
+│   │   └── patterns.c
+│   │
+│   ├── ota/
+│   │   ├── ota_manager.c
+│   │   └── firmware_update.c
+│   │
+│   └── system/
+│       ├── logging.c
+│       ├── watchdog.c
+│       ├── diagnostics.c
+│       ├── fault_handler.c
+│       └── device_info.c
+│
+├── include/
+│   ├── vitality_watch.h
+│   ├── vitality_config.h
+│   ├── vitality_state.h
+│   ├── sensor_types.h
+│   ├── health_types.h
+│   └── app_events.h
+│
+├── assets/
+│   ├── logo/
+│   ├── icons/
+│   ├── fonts/
+│   ├── watchfaces/
+│   ├── animations/
+│   └── themes/
+│
+├── qspi_image/
+│   ├── manifest.json
+│   ├── build_assets.py
+│   └── output/
+│       └── vitality_assets.bin
+│
+├── tests/
+│   ├── unit/
+│   ├── sensors/
+│   ├── vitality/
+│   ├── ui/
+│   ├── storage/
+│   ├── bluetooth/
+│   └── power/
+│
+└── tools/
+    ├── flash_watch.py
+    ├── flash_assets.py
+    ├── sensor_monitor.py
+    ├── decode_logs.py
+    ├── battery_test.py
+    └── factory_test.py
+6. QSPI architecture
+
+Since you decided to use QSPI flash, I recommend 32 MB instead of 16 MB.
+
+W25Q256JV
+32 MB
+      │
+      ├── Assets
+      ├── Fonts
+      ├── Watchfaces
+      ├── Animations
+      ├── Health history
+      └── OTA / reserved
+
+Suggested partition map:
+
+0x000000 ─────────────────────
+          Asset manifest
+          64 KB
+
+0x010000 ─────────────────────
+          Icons + Logo
+          ~1 MB
+
+0x100000 ─────────────────────
+          Fonts
+          ~2 MB
+
+0x300000 ─────────────────────
+          Watchfaces
+          ~8 MB
+
+0xB00000 ─────────────────────
+          Animations
+          ~8 MB
+
+0x1300000 ────────────────────
+          Themes / misc
+          ~1 MB
+
+0x1400000 ────────────────────
+          Health history
+          ~4 MB
+
+0x1800000 ────────────────────
+          OTA / staging
+          ~2 MB
+
+0x1A00000 ────────────────────
+          Reserved
+          ~6 MB
+
+0x2000000
+
+Use LittleFS for changing data such as health history and configuration.
+
+For static UI assets, a packed read-only asset image is preferable.
+
+7. Asset manager
+
+UI code should never know raw flash addresses.
+
+Instead:
+
+asset_handle_t asset_open(asset_id_t id);
+
+asset_read(
+    asset_handle_t handle,
+    uint32_t offset,
+    void *buffer,
+    size_t size
+);
+
+asset_close(handle);
+
+Example:
+
+lv_obj_t *heart_icon = lv_img_create(parent);
+
+lv_img_set_src(
+    heart_icon,
+    "Q:/icons/heart.bin"
+);
+
+Use:
+
+Q:
+
+as the LVGL filesystem prefix for QSPI.
+
+8. UI specification
+
+Target:
+
+Display
+466 × 466
+Round AMOLED
+RGB565
+
+Safe UI area:
+
+Approx.
+420 × 420
+
+Navigation:
+
+                     Swipe Down
+                         │
+                         ▼
+                  Quick Settings
+
+
+Swipe Right ◄────── WATCH FACE ──────► Swipe Left
+
+Notifications                       Vitality
+
+
+                         ▲
+                         │
+                      Swipe Up
+                         │
+                         ▼
+                      App Menu
+
+Main applications:
+
+Vitality
+Heart Rate
+SpO₂
+Activity
+Workout
+Sleep
+Body
+Environment
+Altitude
+Compass
+Notifications
+Timer
+Alarm
+Battery
+Settings
+
+Themes:
+
+Vitality Flow
+Nature
+Clinical
+Sport
+Minimal
+Recovery
+9. Vitality UI identity
+
+The logo should not be the only branding.
+
+Use:
+
+Vitality Ring
+Energy arcs
+Recovery arcs
+Organic growth shapes
+Blue → cyan → green gradients
+Daily balance visualization
+Subtle pulse animation
+Adaptive day/night backgrounds
+
+Main Vitality screen:
+
+           VITALITY
+
+              82
+
+          ENERGIZED
+
+       ╭─────────────╮
+       │             │
+       │ Vitality    │
+       │    Ring     │
+       │             │
+       ╰─────────────╯
+
+ Movement       78
+ Recovery       88
+ Heart          81
+ Sleep          84
+
+        ↑ improving
+10. App state machine
+                    BOOT
+                      │
+                      ▼
+                   STARTUP
+                      │
+                      ▼
+                 WATCH FACE
+                  /   |   \
+                 /    |    \
+                ▼     ▼     ▼
+              APPS  HEALTH  NOTIFY
+                │
+                ▼
+              ACTIVE
+                │
+         ┌──────┼──────────┐
+         │      │          │
+         ▼      ▼          ▼
+      WORKOUT SLEEP      SETTINGS
+         │
+         └──────┬──────────┘
+                │
+                ▼
+              IDLE
+                │
+          screen timeout
+                │
+                ▼
+          LOW POWER MODE
+11. Zephyr threads
+
+Do not run everything in one loop.
+
+Suggested architecture:
+
+UI Thread
+Priority: medium
+20–30 Hz while active
+
+Sensor Thread
+Priority: medium/high
+event driven
+
+BLE Thread
+Zephyr Bluetooth stack
+
+Storage Thread
+low priority
+
+Vitality Engine
+1 Hz / event triggered
+
+Power Manager
+event driven
+
+PPG Processing
+high priority when measuring
+
+The UI should drop to almost zero activity when the screen is off.
+
+12. Event system
+
+Use a central event bus.
+
+Example:
+
+typedef enum {
+
+    EVENT_BOOT,
+
+    EVENT_TOUCH,
+    EVENT_BUTTON,
+    EVENT_CROWN,
+
+    EVENT_HEART_RATE,
+    EVENT_SPO2,
+    EVENT_STEP,
+
+    EVENT_SENSOR_UPDATE,
+
+    EVENT_BATTERY_LOW,
+    EVENT_CHARGING,
+
+    EVENT_BLE_CONNECTED,
+    EVENT_BLE_DISCONNECTED,
+
+    EVENT_NOTIFICATION,
+
+    EVENT_WORKOUT_START,
+    EVENT_WORKOUT_STOP,
+
+    EVENT_SLEEP,
+
+    EVENT_SCREEN_ON,
+    EVENT_SCREEN_OFF
+
+} app_event_type_t;
+
+This prevents UI code from directly controlling drivers.
+
+13. Sensor driver abstraction
+
+Every sensor should implement:
+
+typedef struct {
+
+    int (*init)(void);
+
+    int (*start)(void);
+
+    int (*stop)(void);
+
+    int (*read)(void *data);
+
+    int (*set_rate)(uint32_t hz);
+
+    int (*sleep)(void);
+
+    int (*wake)(void);
+
+} sensor_driver_api_t;
+
+That lets you replace:
+
+MAX30102
+
+with:
+
+MAX86141
+
+later without rewriting the health application.
+
+14. Power states
+
+This is extremely important for the watch.
+
+POWER_ACTIVE
+│
+├── AMOLED ON
+├── touch ON
+├── sensors active
+└── CPU active
+
+
+POWER_IDLE
+│
+├── AMOLED dim
+├── IMU low power
+└── BLE low duty cycle
+
+
+POWER_SLEEP
+│
+├── AMOLED OFF
+├── CPU sleep
+├── IMU wake detection
+├── RTC active
+└── BLE optional
+
+
+POWER_WORKOUT
+│
+├── PPG high rate
+├── IMU 100 Hz
+├── BLE active
+└── display responsive
+
+Target firmware logic:
+
+Normal use:
+mostly asleep.
+
+Wake conditions:
+Touch
+Button
+IMU wrist raise
+BLE event
+RTC alarm
+Charger
+15. Display buffering
+
+A full 466×466 RGB565 frame is approximately:
+
+466 × 466 × 2
+
+≈ 434 KB
+
+The nRF52840 only has:
+
+256 KB RAM
+
+so never allocate a full framebuffer.
+
+Use LVGL partial buffers.
+
+For example:
+
+#define DISPLAY_WIDTH 466
+#define DISPLAY_BUFFER_LINES 40
+
+static lv_color_t buf1[
+    DISPLAY_WIDTH *
+    DISPLAY_BUFFER_LINES
+];
+
+static lv_color_t buf2[
+    DISPLAY_WIDTH *
+    DISPLAY_BUFFER_LINES
+];
+
+Memory:
+
+466 × 40 × 2
+≈ 37 KB
+
+Two buffers
+≈ 74 KB
+
+Much more practical.
+
+16. Internal MCU memory
+nRF52840
+
+Flash
+1 MB
+
+RAM
+256 KB
+
+Internal flash should contain:
+
+MCUboot
+Zephyr
+BLE
+drivers
+application
+Vitality engine
+LVGL core
+critical configuration
+
+Do not compile full watchface graphics into internal flash.
+
+17. BLE services
+
+Use standard services where possible.
+
+Battery Service
+Heart Rate Service
+Device Information Service
+
+Then create:
+
+Vitality Service
+UUID: custom
+
+Characteristics:
+
+Vitality Score
+Activity Score
+Recovery Score
+Steps
+SpO₂
+Skin Temperature
+Altitude
+Environment
+Workout State
+Watch Settings
+
+Also support:
+
+Notification receiver
+Time synchronization
+OTA firmware update
+18. Storage record
+
+Health history record:
+
+typedef struct {
+
+    uint32_t timestamp;
+
+    uint16_t heart_rate;
+
+    uint8_t spo2;
+
+    uint32_t steps;
+
+    int16_t skin_temp_x100;
+
+    int16_t altitude_x10;
+
+    uint8_t vitality;
+
+    uint8_t battery;
+
+} health_record_t;
+
+Avoid storing floating-point values in QSPI when you can store scaled integers.
+
+For example:
+
+33.42°C
+
+stored as
+
+3342
+19. Boot sequence
+
+Codex should implement this exact order:
+
+RESET
+  │
+  ▼
+MCUboot
+  │
+  ▼
+Initialize clocks
+  │
+  ▼
+Initialize logging
+  │
+  ▼
+Initialize PMIC
+  │
+  ▼
+Initialize QSPI
+  │
+  ▼
+Mount storage
+  │
+  ▼
+Load settings
+  │
+  ▼
+Initialize display
+  │
+  ▼
+Show Vitality boot animation
+  │
+  ▼
+Initialize I²C/SPI buses
+  │
+  ▼
+Initialize sensors
+  │
+  ▼
+Initialize LVGL
+  │
+  ▼
+Initialize BLE
+  │
+  ▼
+Initialize Vitality Engine
+  │
+  ▼
+Watch Face
+20. Codex implementation stages
+
+I would not ask Codex to implement the entire repository in one request.
+
+Use these stages:
+
+PHASE 1
+Repository + Zephyr board
+
+PHASE 2
+Display + LVGL
+
+PHASE 3
+Touch
+
+PHASE 4
+QSPI + asset manager
+
+PHASE 5
+Watchface + themes
+
+PHASE 6
+BMI270
+
+PHASE 7
+MAX30102
+
+PHASE 8
+Environment sensors
+
+PHASE 9
+Vitality Engine
+
+PHASE 10
+BLE
+
+PHASE 11
+Power management
+
+PHASE 12
+OTA
+
+PHASE 13
+Tests
+
+PHASE 14
+Optimization
+21. First Codex prompt
+
+You can give Codex this:
+
+You are implementing the firmware for the Vitality Smartwatch.
+
+Hardware target:
+Nordic nRF52840.
+
+SDK:
+Nordic nRF Connect SDK / Zephyr.
+
+UI:
+LVGL.
+
+Display:
+466x466 round AMOLED using SPI.
+
+External storage:
+W25Q256JV 32MB QSPI NOR flash.
+
+Touch:
+CST816S over I2C.
+
+Sensors:
+MAX30102 PPG heart-rate/SpO2
+BMI270 accelerometer/gyroscope
+MAX30208 skin temperature
+SHT40 temperature/humidity
+BMP390 pressure/altitude
+LIS2MDL magnetometer
+MAX17048 battery fuel gauge
+RV-3028 RTC
+DRV2605L haptic driver.
+
+Architecture rules:
+
+1. Drivers must not call UI code.
+2. UI must not directly access hardware drivers.
+3. Sensor data flows through sensor_manager.
+4. Application communication uses an event bus.
+5. Large UI assets live in external QSPI.
+6. LVGL loads assets through a Q: filesystem.
+7. Use partial LVGL display buffers.
+8. Use Zephyr power management.
+9. All hardware drivers must support suspend/resume.
+10. Use MCUboot for firmware updates.
+11. Keep modules unit-testable.
+12. Do not implement fake glucose measurements.
+13. Reserve an interface for a future validated CGM/biosensor.
+
+First task:
+
+Create the complete repository skeleton.
+
+Create:
+- directories
+- CMake files
+- Kconfig
+- prj.conf
+- custom board files
+- public headers
+- module interfaces
+- empty implementation stubs
+
+Do not implement sensor algorithms yet.
+
+The repository must compile even when physical sensors are disabled through Kconfig.
+
+That last requirement is important. It allows Codex to build and test the firmware before your PCB exists.
+
+22. Recommended development configuration
+
+During development:
+
+CONFIG_VITALITY_SENSOR_MAX30102=n
+CONFIG_VITALITY_SENSOR_BMI270=n
+CONFIG_VITALITY_SENSOR_SHT40=n
+CONFIG_VITALITY_SENSOR_BMP390=n
+
+CONFIG_VITALITY_SENSOR_SIMULATOR=y
+
+Then simulate:
+
+Heart rate = 72
+SpO₂ = 98
+Steps = 8421
+Temperature = 33.4
+Humidity = 52
+Altitude = 118
+Battery = 78
+Vitality = 82
+
+That means Codex can build the complete Vitality UI first using simulated data.
+
+Later:
+
+SIMULATOR
+   │
+   ▼
+REAL MAX30102
+REAL BMI270
+REAL BMP390
+...
+
+with almost no UI changes.
+
+23. Recommended first milestone
+
+The first real build should only attempt:
+
+nRF52840
++
+AMOLED
++
+CST816S touch
++
+W25Q256 QSPI
++
+LVGL
++
+Vitality assets
++
+simulated sensor data
+
+You should be able to boot the physical watch and navigate:
+
+Boot animation
+    ↓
+Watchface
+    ↓
+Vitality
+    ↓
+Heart
+    ↓
+Activity
+    ↓
+Environment
+    ↓
+Settings
+
+before adding any physical health sensor.
+
+Once that works, add the hardware sensors one at a time.
+
+This separation is particularly important for this project because it allows Codex to implement almost the entire watch OS and Vitality UI before the final PCB and sensor selection are complete.

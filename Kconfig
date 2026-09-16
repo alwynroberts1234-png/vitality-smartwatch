@@ -1,0 +1,18 @@
+mainmenu "Vitality Watch"
+source "Kconfig.zephyr"
+menu "Vitality"
+config VITALITY_SENSOR_SIMULATOR
+    bool "Explicitly simulated health data"
+    default y
+config VITALITY_UI
+    bool "LVGL watch UI (requires board display)"
+    depends on DISPLAY && LVGL
+    default n
+config VITALITY_QSPI_ASSETS
+    bool "Read-only QSPI asset pack through Q:"
+    depends on VITALITY_UI && FLASH_MAP
+    default n
+    help
+      Requires a vitality_assets_partition fixed partition on external flash.
+      The pack must be provisioned separately. Never formats flash.
+endmenu

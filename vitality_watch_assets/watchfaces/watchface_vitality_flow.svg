@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="466" height="466" viewBox="0 0 466 466">
+<rect width="466" height="466" fill="#020B14"/>
+<circle cx="233" cy="233" r="224" fill="none" stroke="#8CA5B8" stroke-opacity=".18" stroke-width="2"/>
+<text x="233" y="170" text-anchor="middle" fill="#F7FBFF" font-size="86" font-family="Arial" font-weight="700">10:08</text>
+<text x="233" y="205" text-anchor="middle" fill="#8CA5B8" font-size="22" font-family="Arial">TUE 23</text>
+<circle cx="233" cy="233" r="188" fill="none" stroke="#00C8FF" stroke-width="12" stroke-dasharray="620 560" stroke-linecap="round"/>
+<circle cx="233" cy="233" r="168" fill="none" stroke="#21E6A4" stroke-width="8" stroke-dasharray="450 605" stroke-linecap="round" transform="rotate(22 233 233)"/>
+<text x="132" y="300" text-anchor="middle" fill="#F7FBFF" font-size="31" font-family="Arial">72</text>
+<text x="132" y="326" text-anchor="middle" fill="#8CA5B8" font-size="16" font-family="Arial">BPM</text>
+<text x="233" y="300" text-anchor="middle" fill="#F7FBFF" font-size="31" font-family="Arial">8.4K</text>
+<text x="233" y="326" text-anchor="middle" fill="#8CA5B8" font-size="16" font-family="Arial">STEPS</text>
+<text x="334" y="300" text-anchor="middle" fill="#F7FBFF" font-size="31" font-family="Arial">82</text>
+<text x="334" y="326" text-anchor="middle" fill="#8CA5B8" font-size="16" font-family="Arial">VITALITY</text>
+</svg>

@@ -1,0 +1,131 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Vitality: Open project",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Vitality: 1. Detect OS",
+        "Vitality: 2. Check environment",
+        "Vitality: 3. Download environment",
+        "Vitality: 4. Compile and show design"
+      ],
+      "runOptions": {"runOn": "folderOpen"},
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitality: 1. Detect OS",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/tools/setup-host.sh", "--detect"],
+      "windows": {
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/Setup-Environment.ps1", "-Stage", "Detect"]
+      },
+      "options": {"cwd": "${workspaceFolder}"},
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitality: 2. Check environment",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/tools/setup-host.sh", "--check"],
+      "windows": {
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/Setup-Environment.ps1", "-Stage", "Check"]
+      },
+      "options": {"cwd": "${workspaceFolder}"},
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitality: 3. Download environment",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/tools/setup-host.sh", "--download"],
+      "windows": {
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/Setup-Environment.ps1", "-Stage", "Download"]
+      },
+      "options": {"cwd": "${workspaceFolder}"},
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": []
+    },
+    {
+      "label": "Vitality: 4. Compile and show design",
+      "type": "process",
+      "command": "bash",
+      "args": ["${workspaceFolder}/tools/setup-host.sh", "--launch"],
+      "windows": {
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/Setup-Environment.ps1", "-Stage", "Launch"]
+      },
+      "options": {"cwd": "${workspaceFolder}"},
+      "presentation": {"reveal": "always", "panel": "shared"},
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Vitality: Build firmware",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/tools/run-dev.sh",
+        "firmware"
+      ],
+      "windows": {
+        "command": "powershell.exe",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}/tools/Build-Firmware.ps1"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "Vitality: Start preview",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/tools/run-dev.sh",
+        "preview"
+      ],
+      "windows": {
+        "command": "powershell.exe",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "${workspaceFolder}/tools/Build-Preview.ps1",
+          "-Run"
+        ]
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

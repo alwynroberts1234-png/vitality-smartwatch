@@ -1,0 +1,8 @@
+{
+  "name": "vitality_ring",
+  "frame_width": 128,
+  "frame_height": 128,
+  "frames": 16,
+  "fps": 20,
+  "loop": true
+}

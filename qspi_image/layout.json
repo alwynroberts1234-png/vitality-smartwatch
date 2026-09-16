@@ -1,0 +1,26 @@
+{
+  "capacity_bytes": 33554432,
+  "proposed_only": true,
+  "partitions": [
+    {
+      "name": "assets",
+      "offset": 0,
+      "size": 20971520
+    },
+    {
+      "name": "history",
+      "offset": 20971520,
+      "size": 4194304
+    },
+    {
+      "name": "ota_staging",
+      "offset": 25165824,
+      "size": 2097152
+    },
+    {
+      "name": "reserved",
+      "offset": 27262976,
+      "size": 6291456
+    }
+  ]
+}
