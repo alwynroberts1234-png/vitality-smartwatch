@@ -46,7 +46,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 1. Detect OS",
+      "label": "Vitality: 2. Detect OS",
       "type": "process",
       "command": "bash",
       "args": [
@@ -75,7 +75,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 2. Check UI environment",
+      "label": "Vitality: 3. Check UI environment",
       "type": "process",
       "command": "bash",
       "args": [
@@ -104,7 +104,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 3. Prepare UI environment",
+      "label": "Vitality: 4. Prepare UI environment",
       "type": "process",
       "command": "bash",
       "args": [
@@ -133,7 +133,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Vitality: 4. Show watch design",
+      "label": "Vitality: 5. Show watch design",
       "type": "process",
       "command": "bash",
       "args": [
